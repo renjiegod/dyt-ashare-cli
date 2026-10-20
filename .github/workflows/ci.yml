@@ -1,8 +1,8 @@
 name: CI
+# Automatic Actions are disabled by the repository owner's request.
+# Do not run or enable this workflow without a new explicit request.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

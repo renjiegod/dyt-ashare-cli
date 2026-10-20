@@ -10,6 +10,6 @@ if [[ ! -f target/verified-commit || "$(cat target/verified-commit)" != "$(git r
 gitleaks git --redact --no-banner --log-opts='origin/main..HEAD'
 git push -u origin "$branch"
 pr=$(gh pr view "$branch" --json number --jq .number)
-gh pr checks "$pr" --watch --fail-fast
+# The owner disabled GitHub Actions; the local gate above is the merge gate.
 gh pr merge "$pr" --merge --match-head-commit "$(git rev-parse HEAD)"
 git fetch origin
