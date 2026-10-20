@@ -24,7 +24,7 @@
 </div>
 
 > [!NOTE]
-> **开发预览说明**：本项目当前处于公开开发预览阶段。数据服务端地址默认为 `https://data.doyoutrade.cloud`。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
+> **开发预览说明**：本项目当前处于公开开发预览阶段。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
 
 ---
 
@@ -85,7 +85,8 @@ dytcn doctor
 在 PowerShell 终端中执行以下命令（自动检测 x64/ARM64 架构、配置用户 PATH、安装 Skills 并注册后台自动更新任务）：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://data.doyoutrade.cloud/releases/dyt-ashare/install.ps1 | iex"
+# 官方安装脚本源由服务方在账户开通时提供；也可以直接在 Releases 下载预编译便携版
+powershell -ExecutionPolicy Bypass -c "irm https://<RELEASE_HOST>/releases/dyt-ashare/install.ps1 | iex"
 ```
 
 > [!TIP]
@@ -96,7 +97,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://data.doyoutrade.cloud/release
 打开终端执行安装脚本：
 
 ```bash
-curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
+curl -fsSL https://<RELEASE_HOST>/releases/dyt-ashare/install.sh | sh
 ```
 
 安装完成后将 `$HOME/.local/share/dyt-ashare/bin` 加入系统 `PATH` 即可：
@@ -183,7 +184,7 @@ dytcn [GLOBAL_OPTIONS] <COMMAND>
 
 **全局参数 (Global Options)**：
 - `--home <PATH>` 或 `DYT_ASHARE_HOME`：指定本地数据与状态主目录（默认 Windows 为 `%LOCALAPPDATA%\DYT\AShare`，Unix 为 `~/.local/share/dyt-ashare`）。
-- `--api-url <URL>` 或 `DYT_ASHARE_API_URL`：指定服务端 Origin（默认为 `https://data.doyoutrade.cloud`）。
+- `--api-url <URL>` 或 `DYT_ASHARE_API_URL`：指定服务端 Origin 地址（由服务方提供，如 `https://<API_HOST>`）。
 - `--out <PATH>`：将命令输出结果以原子写入方式落地为本地文件，stdout 仅输出文件路径、字节数与 SHA256 校验和。
 - `--no-update` 或 `DYT_ASHARE_NO_UPDATE=1`：在 CI 或受控环境中临时禁用自动更新检测。
 
@@ -420,7 +421,7 @@ flowchart TD
 | `DYT_ASHARE_HOME` | `--home <PATH>` | 见下文 | 本地状态根目录，存放凭据、缓存数据集、Skills 及更新版本 |
 | `DYT_ASHARE_API_KEY` | *(交互输入)* | *(无)* | 显式提供 API Key（`ask_...` 格式），优先于本地保存的凭据 |
 | `DYT_CN_API_KEY` | *(交互输入)* | *(无)* | `DYT_ASHARE_API_KEY` 的向前兼容别名 |
-| `DYT_ASHARE_API_URL` | `--api-url <URL>` | `https://data.doyoutrade.cloud` | 数据服务端 API 基础地址（仅允许 HTTPS 或 loopback 本地地址） |
+| `DYT_ASHARE_API_URL` | `--api-url <URL>` | *(由服务方配置)* | 数据服务端 API 基础地址（支持私有化或代理，仅允许 HTTPS 或 loopback 本地地址） |
 | `DYT_ASHARE_NO_UPDATE` | `--no-update` | `false` | 设为 `1` 或 `true` 时，禁止一切后台自动更新与定时检测 |
 
 > 默认状态根目录：
