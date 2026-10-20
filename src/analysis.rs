@@ -6,7 +6,7 @@ pub fn analyze(input: &[u8]) -> Result<Value> {
     let value: Value = serde_json::from_slice(input)?;
     let mut rows = value["items"]
         .as_array()
-        .context("Expected a dyt minutes JSON file with items")?
+        .context("Expected a dytcn minutes JSON file with items")?
         .iter()
         .collect::<Vec<_>>();
     if rows.is_empty() {

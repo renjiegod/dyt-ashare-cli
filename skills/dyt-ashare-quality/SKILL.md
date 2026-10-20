@@ -3,7 +3,7 @@ name: dyt-ashare-quality
 description: Verify DYT AShare minute-data integrity, immutable dataset revisions and research reproducibility.
 ---
 
-Use `dyt coverage`, `sync` and `analyze`; inspect their JSON and exit status.
+Use `dytcn coverage`, `sync` and `analyze`; inspect their JSON and exit status.
 `sync` verifies byte count, SHA256 and manifest SHA256 before publishing its catalog. A repeat
 verifies local files and skips identical versions; revisions are retained. Consume only paths
 listed in the returned catalog. Avoid combining revisions of the same stock/month.

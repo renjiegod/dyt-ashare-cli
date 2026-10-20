@@ -6,7 +6,7 @@ rust-version = "1.88"
 license = "MIT"
 description = "DYT AShare research CLI with reproducible datasets and agent skills"
 repository = "https://github.com/renjiegod/dyt-ashare-cli"
-default-run = "dyt"
+default-run = "dytcn"
 
 [dependencies]
 anyhow = "1"
@@ -29,5 +29,5 @@ lto = "thin"
 strip = true
 
 [[bin]]
-name = "dyt"
+name = "dytcn"
 path = "src/main.rs"

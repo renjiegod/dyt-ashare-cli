@@ -13,7 +13,7 @@ use std::{
 };
 #[derive(Parser)]
 #[command(
-    name = "dyt",
+    name = "dytcn",
     version,
     about = "DYT AShare historical-market research tools"
 )]

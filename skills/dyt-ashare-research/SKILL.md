@@ -3,9 +3,9 @@ name: dyt-ashare-research
 description: Use DYT AShare to fetch and analyze historical China A-share minute bars for research and backtests.
 ---
 
-Use the installed `dyt` CLI. Run `dyt --help` and relevant subcommand help for current flags.
-Read `dyt usage` before planning a large query. If authentication is missing, ask the user to
-run `dyt auth login` locally; never ask them to send a key in chat.
+Use the installed `dytcn` CLI. Run `dytcn --help` and relevant subcommand help for current flags.
+Read `dytcn usage` before planning a large query. If authentication is missing, ask the user to
+run `dytcn auth login` locally; never ask them to send a key in chat.
 
 Resolve the exchange explicitly: `600000.SH`, `000001.SZ`, or a supported `.BJ` symbol.
 Use `coverage --symbol ... --from YYYY-MM-DD --to YYYY-MM-DD` before choosing a window.
