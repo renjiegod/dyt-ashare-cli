@@ -22,7 +22,7 @@ uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and tw
 
 ```sh
 python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
-  --version 0.1.0 --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
+  --version 0.1.0 --base-url https://<RELEASE_HOST>/releases/dyt-ashare \
   --key /secure/location/cn-ed25519.pem --out dist
 ```
 
