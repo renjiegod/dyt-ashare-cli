@@ -114,16 +114,59 @@ pub fn active(root: &Path) -> Result<Option<Active>> {
     }
 }
 fn smoke(path: &Path, version: &str) -> Result<()> {
-    let out = Command::new(path)
-        .arg("--version")
-        .env("DYT_CN_CHILD", "1")
-        .env("DYT_CN_NO_UPDATE", "1")
-        .output()
-        .context("New CLI failed to start")?;
+    let out = bounded_command(
+        Command::new(path)
+            .arg("--version")
+            .env("DYT_CN_CHILD", "1")
+            .env("DYT_CN_NO_UPDATE", "1"),
+    )?;
     if !out.status.success()
         || String::from_utf8_lossy(&out.stdout).trim() != format!("dyt-cn {version}")
     {
         bail!("New CLI failed version smoke test");
+    }
+    Ok(())
+}
+fn bounded_command(command: &mut Command) -> Result<std::process::Output> {
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("New CLI failed to start")?;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        if child.try_wait()?.is_some() {
+            return Ok(child.wait_with_output()?);
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            bail!("New CLI startup timed out");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(25));
+    }
+}
+fn verify_bundled_skills(exe: &Path, m: &Manifest) -> Result<()> {
+    let out = bounded_command(
+        Command::new(exe)
+            .args(["skills", "bundled"])
+            .env("DYT_CN_CHILD", "1")
+            .env("DYT_CN_NO_UPDATE", "1"),
+    )?;
+    if !out.status.success() {
+        bail!("New CLI bundled Skills check failed");
+    }
+    let value: Value = serde_json::from_slice(&out.stdout)?;
+    let actual = value["skills"]
+        .as_array()
+        .context("Missing bundled Skills hashes")?;
+    for f in m.files.iter().filter(|f| f.path.starts_with("skills/")) {
+        if !actual
+            .iter()
+            .any(|s| s["path"] == f.path && s["sha256"] == f.sha256)
+        {
+            bail!("CLI and release Skills do not match");
+        }
     }
     Ok(())
 }
@@ -182,10 +225,14 @@ fn apply(root: &Path, raw: &[u8]) -> Result<Value> {
     let exe = stage.path().join(binary());
     executable(&exe)?;
     smoke(&exe, &m.version)?;
+    verify_bundled_skills(&exe, &m)?;
     state::atomic(&stage.path().join("release.json"), raw)?;
     let dest = version_dir(root, &m.version)?;
     if dest.exists() {
         validate_installed(root, &m.version)?;
+        if fs::read(dest.join("release.json"))? != raw {
+            bail!("Refusing to rewrite an immutable installed version");
+        }
     } else {
         fs::rename(stage.path(), &dest)?;
     }
@@ -201,12 +248,13 @@ fn apply(root: &Path, raw: &[u8]) -> Result<Value> {
     };
     state::save(&root.join("active.json"), &next)?;
     // Ask the new version to refresh its bundled Skills. Preserve pending/error separately.
-    let result = Command::new(dest.join(binary()))
-        .args(["skills", "refresh"])
-        .env("DYT_CN_HOME", root)
-        .env("DYT_CN_CHILD", "1")
-        .env("DYT_CN_NO_UPDATE", "1")
-        .output();
+    let result = bounded_command(
+        Command::new(dest.join(binary()))
+            .args(["skills", "refresh"])
+            .env("DYT_CN_HOME", root)
+            .env("DYT_CN_CHILD", "1")
+            .env("DYT_CN_NO_UPDATE", "1"),
+    );
     let skills = match result {
         Ok(out) if out.status.success() => serde_json::from_slice(&out.stdout)
             .unwrap_or_else(|_| json!({"error":"invalid_skills_response"})),

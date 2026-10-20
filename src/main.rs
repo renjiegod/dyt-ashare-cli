@@ -101,6 +101,7 @@ enum Auth {
 }
 #[derive(Subcommand)]
 enum Skills {
+    Bundled,
     Install {
         #[arg(long)]
         dir: Option<PathBuf>,
@@ -193,6 +194,9 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
             analysis::analyze(&fs::read(input).context("Cannot read analysis input")?)
         }
         Commands::Skills { command } => match command {
+            Skills::Bundled => Ok(
+                json!({"version":env!("CARGO_PKG_VERSION"),"skills":skills::BUNDLED.iter().map(|(name,text)|json!({"path":format!("skills/{name}/SKILL.md"),"sha256":state::hash(text.as_bytes())})).collect::<Vec<_>>()}),
+            ),
             Skills::Install { dir } => {
                 skills::install(root, &dir.map(Ok).unwrap_or_else(skills::default_dir)?)
             }

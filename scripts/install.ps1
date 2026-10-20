@@ -3,6 +3,15 @@ param([string]$ManifestUrl = 'https://data.doyoutrade.cloud/releases/dyt-cn/stab
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+# PowerShell 7 can pass a module search path that omits Windows PowerShell's inbox modules.
+$windowsModules = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules'
+if (@($env:PSModulePath -split ';') -notcontains $windowsModules) { $env:PSModulePath = "$windowsModules;$env:PSModulePath" }
+function Get-Sha256([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
+    finally { $stream.Dispose(); $hasher.Dispose() }
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 # TLS authenticates first installation. All later releases are verified by the embedded Ed25519 key.
 $uri = [Uri]$ManifestUrl
@@ -28,7 +37,7 @@ try {
     if ($assetUri.Scheme -ne 'https' -and -not $assetUri.IsLoopback) { throw 'HTTPS is required' }
     $bootstrap = Join-Path $temp 'dyt-cn.exe'
     Invoke-WebRequest -UseBasicParsing -Uri $assetUri -OutFile $bootstrap -TimeoutSec 300 -MaximumRedirection 0
-    if ((Get-Item -LiteralPath $bootstrap).Length -ne $asset[0].bytes -or (Get-FileHash -LiteralPath $bootstrap -Algorithm SHA256).Hash.ToLowerInvariant() -ne $asset[0].sha256) { throw 'Bootstrap size/SHA256 mismatch' }
+    if ((Get-Item -LiteralPath $bootstrap).Length -ne $asset[0].bytes -or (Get-Sha256 $bootstrap) -ne $asset[0].sha256) { throw 'Bootstrap size/SHA256 mismatch' }
     $env:DYT_CN_CHILD = '1'
     & $bootstrap update --manifest $manifestPath
     if ($LASTEXITCODE -ne 0) { throw 'Signed bundle installation failed' }

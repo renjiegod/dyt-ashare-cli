@@ -56,6 +56,15 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
   bad=json.loads((out/'0.2.0'/target/'release.json').read_text());bad['payload']=bad['payload'].replace('0.2.0','0.3.0')
   (t/'bad.json').write_text(json.dumps(bad));cli('update','--manifest',str(t/'bad.json'),fail=True)
   assert cli('--version').stdout.strip()=='dyt-cn 0.2.0'
+  # A valid signature must not let a corrupted asset replace the active installation.
+  signed=json.loads((out/'0.2.0'/target/'release.json').read_text())
+  payload=json.loads(signed['payload']);payload['version']='0.3.0'
+  plain=t/'payload';plain.write_bytes(json.dumps(payload,separators=(',',':')).encode())
+  sig=t/'sig';call([openssl,'pkeyutl','-sign','-rawin','-inkey',key,'-in',plain,'-out',sig])
+  signed=dict(payload=plain.read_text(),signature=sig.read_bytes().hex());(t/'bad-asset.json').write_text(json.dumps(signed))
+  served=out/'0.2.0'/target/exe;original_binary=served.read_bytes();served.write_bytes(b'corrupted asset')
+  cli('update','--manifest',str(t/'bad-asset.json'),fail=True);served.write_bytes(original_binary)
+  assert cli('--version').stdout.strip()=='dyt-cn 0.2.0'
   cli('update','rollback');assert cli('--version').stdout.strip()=='dyt-cn 0.1.0'
   assert json.loads(cli('update','--background').stdout)['reason']=='disabled'
   cli('update','enable')
