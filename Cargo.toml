@@ -1,0 +1,29 @@
+[package]
+name = "dyt-cn"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+description = "DYT CN research CLI with reproducible datasets and agent skills"
+repository = "https://github.com/renjiegod/dyt-cn"
+default-run = "dyt-cn"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env"] }
+ed25519-dalek = "2"
+fs2 = "0.4"
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rpassword = "7"
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+url = "2"
+
+[profile.release]
+lto = "thin"
+strip = true
