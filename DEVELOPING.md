@@ -21,7 +21,7 @@ For each target, build with `cargo build --release --locked --target <target>` (
 uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and two Skills:
 
 ```sh
-python3 scripts/package.py --binary target/<target>/release/dyt --target <target> \
+python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
   --version 0.1.0 --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
   --key /secure/location/cn-ed25519.pem --out dist
 ```

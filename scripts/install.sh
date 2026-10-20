@@ -16,14 +16,14 @@ python3 - "$task_tmp" "$target" <<'PY'
 import hashlib,json,pathlib,subprocess,sys,urllib.parse
 p=pathlib.Path(sys.argv[1]);m=json.loads(json.loads((p/'release.json').read_text())['payload'])
 if m['target']!=sys.argv[2]:raise SystemExit('Target mismatch')
-a=next(a for a in m['files'] if a['path']=='dyt')
+a=next(a for a in m['files'] if a['path']=='dytcn')
 if not 0<a['bytes']<=134217728 or urllib.parse.urlsplit(a['url']).scheme!='https':raise SystemExit('Invalid bootstrap asset')
-subprocess.run(['curl','--proto','=https','--tlsv1.2','-fL','--max-redirs','0',a['url'],'-o',str(p/'dyt')],check=True)
-b=(p/'dyt').read_bytes()
+subprocess.run(['curl','--proto','=https','--tlsv1.2','-fL','--max-redirs','0',a['url'],'-o',str(p/'dytcn')],check=True)
+b=(p/'dytcn').read_bytes()
 if len(b)!=a['bytes'] or hashlib.sha256(b).hexdigest()!=a['sha256']:raise SystemExit('Bootstrap checksum mismatch')
-(p/'dyt').chmod(0o755)
+(p/'dytcn').chmod(0o755)
 PY
-DYT_ASHARE_CHILD=1 "$task_tmp/dyt" update --manifest "$task_tmp/release.json"
+DYT_ASHARE_CHILD=1 "$task_tmp/dytcn" update --manifest "$task_tmp/release.json"
 task_root="${DYT_ASHARE_HOME:-$HOME/.local/share/dyt-ashare}"
-"$task_root/bin/dyt" skills install
-printf '\nAdd %s/bin to PATH, then run dyt auth login.\n' "$task_root"
+"$task_root/bin/dytcn" skills install
+printf '\nAdd %s/bin to PATH, then run dytcn auth login.\n' "$task_root"

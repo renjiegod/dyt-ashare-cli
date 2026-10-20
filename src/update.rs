@@ -43,7 +43,7 @@ struct Status {
     skills: Option<Value>,
 }
 pub fn binary() -> &'static str {
-    if cfg!(windows) { "dyt.exe" } else { "dyt" }
+    if cfg!(windows) { "dytcn.exe" } else { "dytcn" }
 }
 pub fn verify(raw: &[u8], public: &[u8; 32], target: &str, now: i64) -> Result<Manifest> {
     let envelope: Envelope = serde_json::from_slice(raw)?;
@@ -117,7 +117,7 @@ fn smoke(path: &Path, version: &str) -> Result<()> {
             .env("DYT_ASHARE_NO_UPDATE", "1"),
     )?;
     if !out.status.success()
-        || String::from_utf8_lossy(&out.stdout).trim() != format!("dyt {version}")
+        || String::from_utf8_lossy(&out.stdout).trim() != format!("dytcn {version}")
     {
         bail!("New CLI failed version smoke test");
     }
@@ -254,8 +254,8 @@ fn apply(root: &Path, raw: &[u8]) -> Result<Value> {
     let skills = match result {
         Ok(out) if out.status.success() => serde_json::from_slice(&out.stdout)
             .unwrap_or_else(|_| json!({"error":"invalid_skills_response"})),
-        Ok(_) => json!({"error":"skills_refresh_failed","retry":"dyt skills refresh"}),
-        Err(_) => json!({"error":"skills_refresh_start_failed","retry":"dyt skills refresh"}),
+        Ok(_) => json!({"error":"skills_refresh_failed","retry":"dytcn skills refresh"}),
+        Err(_) => json!({"error":"skills_refresh_start_failed","retry":"dytcn skills refresh"}),
     };
     Ok(json!({"updated":true,"installed":next.version,"previous":next.previous,"skills":skills}))
 }
@@ -341,7 +341,7 @@ pub fn rollback(root: &Path) -> Result<Value> {
     // Pin after rollback so a startup check cannot immediately reapply the bad release.
     state::atomic(
         &root.join("updates-disabled"),
-        b"rollback pin; run dyt update enable to resume\n",
+        b"rollback pin; run dytcn update enable to resume\n",
     )?;
     let out = Command::new(dir.join(binary()))
         .args(["skills", "refresh"])

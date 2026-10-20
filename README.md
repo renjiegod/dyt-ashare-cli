@@ -6,7 +6,7 @@
 
 当前为开发预览：尚未部署安装源和新版账户策略；仓库代码不代表公网服务已经升级。
 
-Windows 用户使用预编译的 `dyt.exe`，不需要安装 Rust、Python、Node.js 或 WSL。
+Windows 用户使用预编译的 `dytcn.exe`，不需要安装 Rust、Python、Node.js 或 WSL。
 首次安装采用 PowerShell；便携版本也可直接运行。源码开发需要 Rust 1.88+。
 
 ```powershell
@@ -21,19 +21,19 @@ powershell -ExecutionPolicy Bypass -c "irm https://data.doyoutrade.cloud/release
 
 ```sh
 # 第一版由服务运营方签发账户 Key；没有客户自助浏览器登录或在线支付。
-dyt auth login                      # 本地隐藏输入；不把 Key 放入参数或聊天
-dyt usage                           # 服务端账户权益、额度、用量
-dyt coverage --symbol 600000.SH --from 2026-06-01 --to 2026-06-30
-dyt minutes --symbol 600000.SH --from 2026-06-01 --to 2026-06-05 --out minutes.json
-dyt analyze --input minutes.json     # 本地免费分析
-dyt sync --symbol 600000.SH --from 2026-06-01 --to 2026-06-30 --dir ./research
-dyt skills install                   # 默认 ~/.agents/skills
-dyt skills install --dir ./my-skills
-dyt doctor
-dyt update                          # 手动立即执行验签更新
-dyt update rollback                 # 回滚并暂停自动更新
-dyt update enable
-dyt update disable
+dytcn auth login                      # 本地隐藏输入；不把 Key 放入参数或聊天
+dytcn usage                           # 服务端账户权益、额度、用量
+dytcn coverage --symbol 600000.SH --from 2026-06-01 --to 2026-06-30
+dytcn minutes --symbol 600000.SH --from 2026-06-01 --to 2026-06-05 --out minutes.json
+dytcn analyze --input minutes.json     # 本地免费分析
+dytcn sync --symbol 600000.SH --from 2026-06-01 --to 2026-06-30 --dir ./research
+dytcn skills install                   # 默认 ~/.agents/skills
+dytcn skills install --dir ./my-skills
+dytcn doctor
+dytcn update                          # 手动立即执行验签更新
+dytcn update rollback                 # 回滚并暂停自动更新
+dytcn update enable
+dytcn update disable
 ```
 
 命令结果为 stdout JSON；诊断和错误写入 stderr，失败返回非零退出码。

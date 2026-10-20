@@ -89,7 +89,7 @@ impl Api {
         let key = std::env::var("DYT_ASHARE_API_KEY")
             .ok()
             .or_else(|| creds.map(|c| c.key))
-            .context("Run dyt auth login locally, or set DYT_ASHARE_API_KEY")?;
+            .context("Run dytcn auth login locally, or set DYT_ASHARE_API_KEY")?;
         Self::new(&origin, key)
     }
     pub fn get(&self, path: &str, query: &[(&str, &str)]) -> Result<Value> {
