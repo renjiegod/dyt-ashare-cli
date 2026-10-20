@@ -5,7 +5,10 @@ behavior tests. `scripts/e2e_update.py` builds two real CLI versions using an is
 serves signed releases on loopback, installs, updates, preserves edited Skills, rejects a tampered
 manifest, rolls back and performs an unattended update. On Windows it uses the actual PowerShell
 installer and verifies the registered scheduled task, then removes that task and temporary PATH.
-CI runs on native Linux, macOS and Windows x64. Windows ARM64 requires its own native acceptance
+The acceptance recipe has passed on native Linux, macOS and Windows x64. GitHub Actions
+is currently disabled at the owner's request; automatic PR/main triggers are off and local
+checks are the merge gate. Do not enable or dispatch the retained workflow without explicit
+approval. Windows ARM64 requires its own native acceptance
 before claiming that architecture is verified. No production service or user Skills are used by tests.
 
 The backend contract is `/v1/usage`, `/v1/datasets`, `/v1/minutes` and immutable dataset
