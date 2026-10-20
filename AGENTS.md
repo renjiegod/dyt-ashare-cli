@@ -1,4 +1,4 @@
-# DYT CN
+# DYT AShare
 
 Public Rust client and bundled Skills; proprietary service stays in its own repository.
 Use a worktree from freshly fetched origin/main. Never commit keys or market data.

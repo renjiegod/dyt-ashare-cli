@@ -1,12 +1,12 @@
 [package]
-name = "dyt-cn"
+name = "dyt-ashare-cli"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
-description = "DYT CN research CLI with reproducible datasets and agent skills"
-repository = "https://github.com/renjiegod/dyt-cn"
-default-run = "dyt-cn"
+description = "DYT AShare research CLI with reproducible datasets and agent skills"
+repository = "https://github.com/renjiegod/dyt-ashare-cli"
+default-run = "dyt"
 
 [dependencies]
 anyhow = "1"
@@ -27,3 +27,7 @@ url = "2"
 [profile.release]
 lto = "thin"
 strip = true
+
+[[bin]]
+name = "dyt"
+path = "src/main.rs"

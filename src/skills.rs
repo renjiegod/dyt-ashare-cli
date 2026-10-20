@@ -8,12 +8,12 @@ use std::{
 };
 pub const BUNDLED: [(&str, &str); 2] = [
     (
-        "dyt-cn-research",
-        include_str!("../skills/dyt-cn-research/SKILL.md"),
+        "dyt-ashare-research",
+        include_str!("../skills/dyt-ashare-research/SKILL.md"),
     ),
     (
-        "dyt-cn-quality",
-        include_str!("../skills/dyt-cn-quality/SKILL.md"),
+        "dyt-ashare-quality",
+        include_str!("../skills/dyt-ashare-quality/SKILL.md"),
     ),
 ];
 #[derive(Default, Serialize, Deserialize)]

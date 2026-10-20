@@ -13,18 +13,18 @@ use std::{
 };
 #[derive(Parser)]
 #[command(
-    name = "dyt-cn",
+    name = "dyt",
     version,
-    about = "DYT CN historical-market research tools"
+    about = "DYT AShare historical-market research tools"
 )]
 struct Cli {
-    #[arg(long, global = true, env = "DYT_CN_HOME")]
+    #[arg(long, global = true, env = "DYT_ASHARE_HOME")]
     home: Option<PathBuf>,
-    #[arg(long, global = true, env = "DYT_CN_API_URL")]
+    #[arg(long, global = true, env = "DYT_ASHARE_API_URL")]
     api_url: Option<String>,
     #[arg(long, global = true)]
     out: Option<PathBuf>,
-    #[arg(long, global = true, env = "DYT_CN_NO_UPDATE", value_parser=clap::builder::BoolishValueParser::new())]
+    #[arg(long, global = true, env = "DYT_ASHARE_NO_UPDATE", value_parser=clap::builder::BoolishValueParser::new())]
     no_update: bool,
     #[command(subcommand)]
     command: Commands,
@@ -142,11 +142,11 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
                     fs::remove_file(p)?;
                 }
                 Ok(
-                    json!({"logged_out":true,"environment_key_set":std::env::var_os("DYT_CN_API_KEY").is_some()}),
+                    json!({"logged_out":true,"environment_key_set":std::env::var_os("DYT_ASHARE_API_KEY").or_else(|| std::env::var_os("DYT_CN_API_KEY")).is_some()}),
                 )
             }
             Auth::Status => Ok(
-                json!({"stored_credentials":root.join("credentials.json").exists(),"environment_key_set":std::env::var_os("DYT_CN_API_KEY").is_some()}),
+                json!({"stored_credentials":root.join("credentials.json").exists(),"environment_key_set":std::env::var_os("DYT_ASHARE_API_KEY").or_else(|| std::env::var_os("DYT_CN_API_KEY")).is_some()}),
             ),
         },
         Commands::Usage => api()?.get("/v1/usage", &[]),
