@@ -43,11 +43,7 @@ struct Status {
     skills: Option<Value>,
 }
 pub fn binary() -> &'static str {
-    if cfg!(windows) {
-        "dyt-cn.exe"
-    } else {
-        "dyt-cn"
-    }
+    if cfg!(windows) { "dyt.exe" } else { "dyt" }
 }
 pub fn verify(raw: &[u8], public: &[u8; 32], target: &str, now: i64) -> Result<Manifest> {
     let envelope: Envelope = serde_json::from_slice(raw)?;
@@ -63,8 +59,8 @@ pub fn verify(raw: &[u8], public: &[u8; 32], target: &str, now: i64) -> Result<M
     }
     let expected = [
         binary().to_string(),
-        "skills/dyt-cn-research/SKILL.md".into(),
-        "skills/dyt-cn-quality/SKILL.md".into(),
+        "skills/dyt-ashare-research/SKILL.md".into(),
+        "skills/dyt-ashare-quality/SKILL.md".into(),
     ];
     let paths = m
         .files
@@ -88,7 +84,7 @@ pub fn verify(raw: &[u8], public: &[u8; 32], target: &str, now: i64) -> Result<M
 }
 fn public() -> Result<[u8; 32]> {
     hex::decode(
-        option_env!("DYT_CN_RELEASE_PUBLIC_KEY")
+        option_env!("DYT_ASHARE_RELEASE_PUBLIC_KEY")
             .unwrap_or(include_str!("../release-public-key.hex"))
             .trim(),
     )?
@@ -117,11 +113,11 @@ fn smoke(path: &Path, version: &str) -> Result<()> {
     let out = bounded_command(
         Command::new(path)
             .arg("--version")
-            .env("DYT_CN_CHILD", "1")
-            .env("DYT_CN_NO_UPDATE", "1"),
+            .env("DYT_ASHARE_CHILD", "1")
+            .env("DYT_ASHARE_NO_UPDATE", "1"),
     )?;
     if !out.status.success()
-        || String::from_utf8_lossy(&out.stdout).trim() != format!("dyt-cn {version}")
+        || String::from_utf8_lossy(&out.stdout).trim() != format!("dyt {version}")
     {
         bail!("New CLI failed version smoke test");
     }
@@ -150,8 +146,8 @@ fn verify_bundled_skills(exe: &Path, m: &Manifest) -> Result<()> {
     let out = bounded_command(
         Command::new(exe)
             .args(["skills", "bundled"])
-            .env("DYT_CN_CHILD", "1")
-            .env("DYT_CN_NO_UPDATE", "1"),
+            .env("DYT_ASHARE_CHILD", "1")
+            .env("DYT_ASHARE_NO_UPDATE", "1"),
     )?;
     if !out.status.success() {
         bail!("New CLI bundled Skills check failed");
@@ -251,22 +247,22 @@ fn apply(root: &Path, raw: &[u8]) -> Result<Value> {
     let result = bounded_command(
         Command::new(dest.join(binary()))
             .args(["skills", "refresh"])
-            .env("DYT_CN_HOME", root)
-            .env("DYT_CN_CHILD", "1")
-            .env("DYT_CN_NO_UPDATE", "1"),
+            .env("DYT_ASHARE_HOME", root)
+            .env("DYT_ASHARE_CHILD", "1")
+            .env("DYT_ASHARE_NO_UPDATE", "1"),
     );
     let skills = match result {
         Ok(out) if out.status.success() => serde_json::from_slice(&out.stdout)
             .unwrap_or_else(|_| json!({"error":"invalid_skills_response"})),
-        Ok(_) => json!({"error":"skills_refresh_failed","retry":"dyt-cn skills refresh"}),
-        Err(_) => json!({"error":"skills_refresh_start_failed","retry":"dyt-cn skills refresh"}),
+        Ok(_) => json!({"error":"skills_refresh_failed","retry":"dyt skills refresh"}),
+        Err(_) => json!({"error":"skills_refresh_start_failed","retry":"dyt skills refresh"}),
     };
     Ok(json!({"updated":true,"installed":next.version,"previous":next.previous,"skills":skills}))
 }
 pub fn run(root: &Path, source: Option<&Path>, background: bool) -> Result<Value> {
     if background
         && (root.join("updates-disabled").exists()
-            || std::env::var_os("DYT_CN_NO_UPDATE").is_some())
+            || std::env::var_os("DYT_ASHARE_NO_UPDATE").is_some())
     {
         return Ok(json!({"updated":false,"reason":"disabled"}));
     }
@@ -295,8 +291,8 @@ pub fn run(root: &Path, source: Option<&Path>, background: bool) -> Result<Value
         let raw = if let Some(p) = source {
             fs::read(p)?
         } else {
-            let url = std::env::var("DYT_CN_RELEASE_URL").unwrap_or_else(|_| {
-                format!("https://data.doyoutrade.cloud/releases/dyt-cn/stable-{TARGET}.json")
+            let url = std::env::var("DYT_ASHARE_RELEASE_URL").unwrap_or_else(|_| {
+                format!("https://data.doyoutrade.cloud/releases/dyt-ashare/stable-{TARGET}.json")
             });
             let u = url::Url::parse(&url)?;
             state::secure_url(&u)?;
@@ -345,20 +341,20 @@ pub fn rollback(root: &Path) -> Result<Value> {
     // Pin after rollback so a startup check cannot immediately reapply the bad release.
     state::atomic(
         &root.join("updates-disabled"),
-        b"rollback pin; run dyt-cn update enable to resume\n",
+        b"rollback pin; run dyt update enable to resume\n",
     )?;
     let out = Command::new(dir.join(binary()))
         .args(["skills", "refresh"])
-        .env("DYT_CN_HOME", root)
-        .env("DYT_CN_CHILD", "1")
-        .env("DYT_CN_NO_UPDATE", "1")
+        .env("DYT_ASHARE_HOME", root)
+        .env("DYT_ASHARE_CHILD", "1")
+        .env("DYT_ASHARE_NO_UPDATE", "1")
         .output()?;
     Ok(
         json!({"installed":previous,"auto_updates":false,"skills_refresh_succeeded":out.status.success()}),
     )
 }
 pub fn dispatch(root: &Path) -> Result<Option<i32>> {
-    if std::env::var_os("DYT_CN_CHILD").is_some() {
+    if std::env::var_os("DYT_ASHARE_CHILD").is_some() {
         return Ok(None);
     }
     let Some(a) = active(root)? else {
@@ -371,14 +367,14 @@ pub fn dispatch(root: &Path) -> Result<Option<i32>> {
     }
     let code = Command::new(exe)
         .args(std::env::args_os().skip(1))
-        .env("DYT_CN_CHILD", "1")
+        .env("DYT_ASHARE_CHILD", "1")
         .status()?
         .code()
         .unwrap_or(1);
     Ok(Some(code))
 }
 pub fn background(root: &Path) {
-    if std::env::var_os("DYT_CN_NO_UPDATE").is_some()
+    if std::env::var_os("DYT_ASHARE_NO_UPDATE").is_some()
         || root.join("updates-disabled").exists()
         || !root.join("active.json").exists()
     {
@@ -386,7 +382,7 @@ pub fn background(root: &Path) {
     }
     let mut c = Command::new(std::env::current_exe().unwrap_or_else(|_| PathBuf::from(binary())));
     c.args(["update", "--background"])
-        .env("DYT_CN_CHILD", "1")
+        .env("DYT_ASHARE_CHILD", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());

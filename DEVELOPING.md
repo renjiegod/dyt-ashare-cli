@@ -21,14 +21,14 @@ For each target, build with `cargo build --release --locked --target <target>` (
 uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and two Skills:
 
 ```sh
-python3 scripts/package.py --binary target/<target>/release/dyt-cn --target <target> \
-  --version 0.1.0 --base-url https://data.doyoutrade.cloud/releases/dyt-cn \
+python3 scripts/package.py --binary target/<target>/release/dyt --target <target> \
+  --version 0.1.0 --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
   --key /secure/location/cn-ed25519.pem --out dist
 ```
 
 Use the matching Ed25519 private key for `release-public-key.hex`; never commit the private key.
 The release custodian generated the current key locally. A trust-key override
-`DYT_CN_RELEASE_PUBLIC_KEY` is compile-time only, intended for isolated acceptance builds or
+`DYT_ASHARE_RELEASE_PUBLIC_KEY` is compile-time only, intended for isolated acceptance builds or
 planned product key rotation; an environment variable cannot replace trust in installed binaries.
 OpenSSL 3 is needed only by packaging/tests, not by users. macOS LibreSSL is insufficient.
 

@@ -1,9 +1,9 @@
 ---
-name: dyt-cn-quality
-description: Verify DYT CN minute-data integrity, immutable dataset revisions and research reproducibility.
+name: dyt-ashare-quality
+description: Verify DYT AShare minute-data integrity, immutable dataset revisions and research reproducibility.
 ---
 
-Use `dyt-cn coverage`, `sync` and `analyze`; inspect their JSON and exit status.
+Use `dyt coverage`, `sync` and `analyze`; inspect their JSON and exit status.
 `sync` verifies byte count, SHA256 and manifest SHA256 before publishing its catalog. A repeat
 verifies local files and skips identical versions; revisions are retained. Consume only paths
 listed in the returned catalog. Avoid combining revisions of the same stock/month.

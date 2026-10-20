@@ -27,7 +27,7 @@ pub fn http() -> Result<Client> {
     Ok(Client::builder()
         .redirect(Policy::none())
         .timeout(Duration::from_secs(60))
-        .user_agent(concat!("dyt-cn/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("dyt-ashare/", env!("CARGO_PKG_VERSION")))
         .build()?)
 }
 pub fn bytes(mut r: Response, limit: u64) -> Result<Vec<u8>> {
@@ -75,7 +75,9 @@ impl Api {
             .map(str::to_owned)
             .or_else(|| creds.as_ref().map(|c| c.origin.clone()))
             .unwrap_or_else(|| "https://data.doyoutrade.cloud".into());
-        if std::env::var_os("DYT_CN_API_KEY").is_none()
+        if std::env::var_os("DYT_ASHARE_API_KEY")
+            .or_else(|| std::env::var_os("DYT_CN_API_KEY"))
+            .is_none()
             && creds
                 .as_ref()
                 .is_some_and(|c| c.origin.trim_end_matches('/') != origin.trim_end_matches('/'))
@@ -84,10 +86,10 @@ impl Api {
                 "Stored credentials belong to a different origin; log in to the selected service first"
             );
         }
-        let key = std::env::var("DYT_CN_API_KEY")
+        let key = std::env::var("DYT_ASHARE_API_KEY")
             .ok()
             .or_else(|| creds.map(|c| c.key))
-            .context("Run dyt-cn auth login locally, or set DYT_CN_API_KEY")?;
+            .context("Run dyt auth login locally, or set DYT_ASHARE_API_KEY")?;
         Self::new(&origin, key)
     }
     pub fn get(&self, path: &str, query: &[(&str, &str)]) -> Result<Value> {

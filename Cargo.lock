@@ -316,7 +316,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dyt-cn"
+name = "dyt-ashare-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -25,19 +25,20 @@ pub fn root() -> Result<PathBuf> {
             return Ok(PathBuf::from(s));
         }
     }
-    if let Some(p) = std::env::var_os("DYT_CN_HOME") {
+    if let Some(p) = std::env::var_os("DYT_ASHARE_HOME").or_else(|| std::env::var_os("DYT_CN_HOME"))
+    {
         return Ok(PathBuf::from(p));
     }
     #[cfg(windows)]
     {
         Ok(
             PathBuf::from(std::env::var_os("LOCALAPPDATA").context("LOCALAPPDATA is missing")?)
-                .join("DYT/CN"),
+                .join("DYT/AShare"),
         )
     }
     #[cfg(not(windows))]
     {
-        Ok(home()?.join(".local/share/dyt-cn"))
+        Ok(home()?.join(".local/share/dyt-ashare"))
     }
 }
 pub fn read<T: DeserializeOwned>(path: &Path) -> Result<T> {

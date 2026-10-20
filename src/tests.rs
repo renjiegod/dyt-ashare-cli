@@ -21,8 +21,8 @@ fn release() -> update::Manifest {
         expires_at: 200,
         files: [
             update::binary(),
-            "skills/dyt-cn-research/SKILL.md",
-            "skills/dyt-cn-quality/SKILL.md",
+            "skills/dyt-ashare-research/SKILL.md",
+            "skills/dyt-ashare-quality/SKILL.md",
         ]
         .iter()
         .map(|p| update::Asset {
@@ -77,7 +77,7 @@ fn skill_update_preserves_user_edits_and_reports_actual_inventory() {
     fs::create_dir(&root).unwrap();
     let dir = tmp.path().join("skills");
     skills::install(&root, &dir).unwrap();
-    let p = dir.join("dyt-cn-research/SKILL.md");
+    let p = dir.join("dyt-ashare-research/SKILL.md");
     fs::write(&p, b"my modified skill").unwrap();
     let result = skills::install(&root, &dir).unwrap();
     assert_eq!(result["pending"].as_array().unwrap().len(), 1);
