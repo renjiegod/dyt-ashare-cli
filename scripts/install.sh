@@ -6,23 +6,38 @@ case "$(uname -s)/$(uname -m)" in
  Linux/x86_64) target=x86_64-unknown-linux-gnu;;
  *) echo 'Unsupported platform; download a compatible portable bundle.' >&2; exit 1;;
 esac
-# The installer uses system Python only for metadata parsing; the installed CLI has no runtime dependency.
-command -v python3 >/dev/null || { echo 'First installation needs python3 or use the portable binary.' >&2; exit 1; }
+command -v curl >/dev/null || { echo 'First installation needs curl or use the portable binary.' >&2; exit 1; }
 task_url="${DYT_ASHARE_RELEASE_URL:-https://data.doyoutrade.cloud/releases/dyt-ashare/stable-$target.json}"
 task_tmp=$(mktemp -d)
 trap 'rm -rf "$task_tmp"' EXIT HUP INT TERM
 curl --proto '=https' --tlsv1.2 -fL --max-redirs 0 "$task_url" -o "$task_tmp/release.json"
-python3 - "$task_tmp" "$target" <<'PY'
-import hashlib,json,pathlib,subprocess,sys,urllib.parse
-p=pathlib.Path(sys.argv[1]);m=json.loads(json.loads((p/'release.json').read_text())['payload'])
-if m['target']!=sys.argv[2]:raise SystemExit('Target mismatch')
-a=next(a for a in m['files'] if a['path']=='dytcn')
-if not 0<a['bytes']<=134217728 or urllib.parse.urlsplit(a['url']).scheme!='https':raise SystemExit('Invalid bootstrap asset')
-subprocess.run(['curl','--proto','=https','--tlsv1.2','-fL','--max-redirs','0',a['url'],'-o',str(p/'dytcn')],check=True)
-b=(p/'dytcn').read_bytes()
-if len(b)!=a['bytes'] or hashlib.sha256(b).hexdigest()!=a['sha256']:raise SystemExit('Bootstrap checksum mismatch')
-(p/'dytcn').chmod(0o755)
-PY
+json_string() { sed -n -E "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\1/p" "$task_tmp/release.json"; }
+json_number() { sed -n -E "s/.*\"$1\"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p" "$task_tmp/release.json"; }
+file_bytes() { wc -c < "$1" | tr -d '[:space:]'; }
+file_sha256() {
+  if command -v shasum >/dev/null; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v openssl >/dev/null; then
+    openssl dgst -sha256 -r "$1" | awk '{print $1}'
+  else
+    echo 'First installation needs shasum, sha256sum or openssl.' >&2
+    exit 1
+  fi
+}
+bootstrap_url=$(json_string bootstrap_url)
+bootstrap_bytes=$(json_number bootstrap_bytes)
+bootstrap_sha256=$(json_string bootstrap_sha256)
+case "$bootstrap_url" in https://*) ;; *) echo 'Invalid bootstrap URL.' >&2; exit 1;; esac
+case "$bootstrap_bytes" in ''|*[!0-9]*) echo 'Invalid bootstrap size.' >&2; exit 1;; esac
+[ "$bootstrap_bytes" -gt 0 ] && [ "$bootstrap_bytes" -le 134217728 ] || { echo 'Invalid bootstrap size.' >&2; exit 1; }
+[ "${#bootstrap_sha256}" -eq 64 ] || { echo 'Invalid bootstrap checksum.' >&2; exit 1; }
+case "$bootstrap_sha256" in *[!0-9a-fA-F]*) echo 'Invalid bootstrap checksum.' >&2; exit 1;; esac
+curl --proto '=https' --tlsv1.2 -fL --max-redirs 0 "$bootstrap_url" -o "$task_tmp/dytcn"
+[ "$(file_bytes "$task_tmp/dytcn")" = "$bootstrap_bytes" ] || { echo 'Bootstrap size mismatch.' >&2; exit 1; }
+[ "$(file_sha256 "$task_tmp/dytcn")" = "$bootstrap_sha256" ] || { echo 'Bootstrap checksum mismatch.' >&2; exit 1; }
+chmod 755 "$task_tmp/dytcn"
 DYT_ASHARE_CHILD=1 "$task_tmp/dytcn" update --manifest "$task_tmp/release.json"
 task_root="${DYT_ASHARE_HOME:-$HOME/.local/share/dyt-ashare}"
 "$task_root/bin/dytcn" skills install
