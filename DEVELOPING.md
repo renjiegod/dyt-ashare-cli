@@ -22,7 +22,7 @@ uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and tw
 
 ```sh
 python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
-  --version 0.1.0 --base-url https://<RELEASE_HOST>/releases/dyt-ashare \
+  --version 0.1.0 --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
   --key /secure/location/cn-ed25519.pem --out dist
 ```
 
@@ -32,7 +32,9 @@ The release custodian generated the current key locally. A trust-key override
 planned product key rotation; an environment variable cannot replace trust in installed binaries.
 OpenSSL 3 is needed only by packaging/tests, not by users. macOS LibreSSL is insufficient.
 
-Upload immutable `<version>/<target>/...` assets first, including `release.json`; then publish
+The production release origin is `https://data.doyoutrade.cloud`. Keep it as the `--base-url` origin
+for every package; do not use the GitHub Releases page as an asset base URL. Upload immutable
+`<version>/<target>/...` assets first, including `release.json`; then publish
 `stable-<target>.json` last. Signed payloads expire after 14 days; renew the signed channel
 metadata before expiry, including when no binary changes. Refuse rewriting existing version
 assets. Host `install.ps1` and `install.sh` on the same trusted HTTPS origin. Distribution and

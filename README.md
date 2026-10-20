@@ -24,7 +24,7 @@
 </div>
 
 > [!NOTE]
-> **开发预览说明**：本项目当前处于公开开发预览阶段。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
+> **开发预览说明**：本项目当前处于公开开发预览阶段。安装脚本、签名发布清单、版本包和 Skills 使用固定的 DYT 发布源 `https://data.doyoutrade.cloud`；GitHub Releases 用于源码和便携版下载。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
 
 ---
 
@@ -85,8 +85,8 @@ dytcn doctor
 在 PowerShell 终端中执行以下命令（自动检测 x64/ARM64 架构、配置用户 PATH、安装 Skills 并注册后台自动更新任务）：
 
 ```powershell
-# 官方安装脚本源由服务方在账户开通时提供；也可以直接在 Releases 下载预编译便携版
-powershell -ExecutionPolicy Bypass -c "irm https://<RELEASE_HOST>/releases/dyt-ashare/install.ps1 | iex"
+# 官方安装脚本使用 DYT 发布源；也可以直接在 Releases 下载预编译便携版
+powershell -ExecutionPolicy Bypass -c "irm https://data.doyoutrade.cloud/releases/dyt-ashare/install.ps1 | iex"
 ```
 
 > [!TIP]
@@ -97,7 +97,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://<RELEASE_HOST>/releases/dyt-a
 打开终端执行安装脚本：
 
 ```bash
-curl -fsSL https://<RELEASE_HOST>/releases/dyt-ashare/install.sh | sh
+curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
 ```
 
 安装脚本只使用 `curl` 和系统自带的 SHA256 工具，不需要安装 Python、Rust 或其他运行时。
