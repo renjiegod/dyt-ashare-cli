@@ -100,6 +100,8 @@ powershell -ExecutionPolicy Bypass -c "irm https://<RELEASE_HOST>/releases/dyt-a
 curl -fsSL https://<RELEASE_HOST>/releases/dyt-ashare/install.sh | sh
 ```
 
+安装脚本只使用 `curl` 和系统自带的 SHA256 工具，不需要安装 Python、Rust 或其他运行时。
+
 安装完成后将 `$HOME/.local/share/dyt-ashare/bin` 加入系统 `PATH` 即可：
 
 ```bash

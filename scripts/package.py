@@ -21,7 +21,8 @@ payload=json.dumps(dict(version=a.version,target=a.target,expires_at=int(time.ti
 with tempfile.TemporaryDirectory() as tmp:
  plain=pathlib.Path(tmp)/'payload';sig=pathlib.Path(tmp)/'signature';plain.write_bytes(payload.encode())
  subprocess.run([os.getenv('DYT_OPENSSL','openssl'),'pkeyutl','-sign','-rawin','-inkey',str(a.key),'-in',str(plain),'-out',str(sig)],check=True)
- envelope=json.dumps(dict(payload=payload,signature=sig.read_bytes().hex()),ensure_ascii=False).encode()
+ bootstrap=files[0]
+ envelope=json.dumps(dict(bootstrap_url=bootstrap['url'],bootstrap_bytes=bootstrap['bytes'],bootstrap_sha256=bootstrap['sha256'],payload=payload,signature=sig.read_bytes().hex()),ensure_ascii=False).encode()
 (prefix/'release.json').write_bytes(envelope)
 (a.out/f'stable-{a.target}.json').write_bytes(envelope)
 print(a.out/f'stable-{a.target}.json')
