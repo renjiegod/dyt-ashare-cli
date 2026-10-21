@@ -197,9 +197,10 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
             Skills::Bundled => Ok(
                 json!({"version":env!("CARGO_PKG_VERSION"),"skills":skills::BUNDLED.iter().map(|(name,text)|json!({"path":format!("skills/{name}/SKILL.md"),"sha256":state::hash(text.as_bytes())})).collect::<Vec<_>>()}),
             ),
-            Skills::Install { dir } => {
-                skills::install(root, &dir.map(Ok).unwrap_or_else(skills::default_dir)?)
-            }
+            Skills::Install { dir } => match dir {
+                Some(dir) => skills::install(root, &dir),
+                None => skills::install_default(root),
+            },
             Skills::Refresh => skills::refresh(root),
             Skills::List => skills::inventory(root),
         },

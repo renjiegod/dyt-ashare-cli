@@ -36,7 +36,7 @@
 |:---|:---|:---|
 | **环境依赖** | 需要安装 Python、Pandas、WSL 或 C++ 运行库 | **单个独立可执行程序**，零依赖，Windows 解压即用 |
 | **执行性能** | 启动缓慢、脚本解释开销大、内存占用高 | **纯 Rust 编写**，内存安全，微秒级启动，极速解析 |
-| **Agent 支持** | 需手写 Prompt 引导大模型拼接各种数据接口 | **原生内置双 Agent Skills**，即插即用（Claude / Cursor 等） |
+| **Agent 支持** | 需手写 Prompt 引导大模型拼接各种数据接口 | **原生内置单一 A 股路由 Skill**，自动适配已安装的 Agent（Claude / Cursor / Codex 等） |
 | **数据分析** | 分析必须编写专用脚本或依赖三方收费接口 | **本地离线零成本分析**，无需服务端配额，秒级输出统计与质检 |
 | **数据完整性** | 文件命名混乱、分发易篡改、版本难以重现 | **不可变 UUID + SHA256 校验和**，附带完整 Provenance 归档 |
 | **更新与安全** | 手动重新拉取仓库或依赖 pip，风险不可控 | **内置 Ed25519 密码学验签**、原子无缝更新与一键 Rollback |
@@ -96,6 +96,9 @@ cargo install --locked --path .
 dytcn --version
 ```
 
+源码安装后运行 `dytcn skills install`，即可安装统一的 `dyt-ashare` Skill；发布安装脚本
+将在正式发布后提供同样的自动安装流程。
+
 ---
 
 ## 🤖 AI Agent 深度赋能
@@ -104,27 +107,22 @@ dytcn --version
 
 ```
 skills/
-├── dyt-ashare-research/    # A 股分钟级数据检索与量化策略研究专家
-└── dyt-ashare-quality/     # 数据完整性核验、时段审计与可重现性分析
+└── dyt-ashare/              # A 股信息查询、数据质量与研究分析统一路由
 ```
 
 ### 1. 内置 Skills 详解
 
-* **`dyt-ashare-research`**：
-  - 引导 Agent 遵循 A 股市场特定规则（自动补全交易所前缀 `.SH` / `.SZ` / `.BJ`）。
-  - 在执行大规模抽取前自动规划 `dytcn usage` 额度评估与 `coverage` 时间窗口探查。
-  - 严格提醒 Agent：原始价格变动不等于交易收益（必须考虑分红除权除息），避免模型得出脱离现实的策略胜率。
-* **`dyt-ashare-quality`**：
-  - 指导 Agent 调用 `analyze` 对输入 JSON 数据实施严格的质量核验。
-  - 自动审查 A 股每日标准 240 根分钟线基准、早盘集合竞价标识、时间戳重复与非交易时段异动。
-  - 确保量化回测的输入数据具备密码学级别的可重现性证据。
+* **`dyt-ashare`**：
+  - 对所有 A 股、沪深京股票、行情/历史信息、分钟线、覆盖度、数据质量、技术分析、研究和回测请求触发。
+  - 在同一个入口内路由到 `usage`、`coverage`、`minutes`、`sync`、`analyze`、`doctor` 和认证流程，避免用户安装多个相互竞争的 Skill。
+  - 强制使用 `.SH` / `.SZ` / `.BJ` 交易所后缀、保留不可变数据集哈希，并提醒原始价格变化不等于考虑公司行为和交易成本后的收益。
 
 ### 2. 一键安装与适配支持
 
 通过以下命令将内置 Skills 导出到主流 AI 辅助工具的技能库：
 
 ```bash
-# 默认分发到标准技能目录 (~/.agents/skills)
+# 默认写入 canonical 目录 (~/.agents/skills)，并为已检测到的 Agent 建立相对链接
 dytcn skills install
 
 # 或指定安装到当前项目的自定义技能目录
@@ -132,9 +130,9 @@ dytcn skills install --dir ./.agents/skills
 ```
 
 支持即插即用的 AI 研发环境：
-- **Cursor** / **Windsurf**：在 Project Rules 或 Agent Settings 中自动加载。
-- **Claude Code** / **Claude Desktop**：配合 MCP 或原生本地提示词工作流。
-- **Google Antigravity** / **OpenCode** / **Codex**：作为本地工作区专业金融技能无缝调用。
+- **Claude Code**、**Codex**、**Cursor**、**Windsurf**、**OpenCode**、**Gemini/Antigravity**、**Trae**、**Qwen**、**OpenClaw** 和 **Roo**（检测到对应用户目录时自动建立链接）。
+- canonical 文件只有一份，CLI 更新或回滚后会同步它；各 Agent 目录共享这份文件，用户编辑或外部目录会保留并出现在 `pending`。
+- 未检测到的 Agent 可使用 `dytcn skills install --dir <agent-skill-dir>` 显式接入；该命令写入一个目录并保留原有文件。
 
 ---
 

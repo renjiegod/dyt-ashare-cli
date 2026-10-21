@@ -19,19 +19,15 @@ fn release() -> update::Manifest {
         version: "0.1.0".into(),
         target: update::TARGET.into(),
         expires_at: 200,
-        files: [
-            update::binary(),
-            "skills/dyt-ashare-research/SKILL.md",
-            "skills/dyt-ashare-quality/SKILL.md",
-        ]
-        .iter()
-        .map(|p| update::Asset {
-            path: (*p).into(),
-            url: "https://example.com/asset".into(),
-            bytes: 10,
-            sha256: "0".repeat(64),
-        })
-        .collect(),
+        files: [update::binary(), "skills/dyt-ashare/SKILL.md"]
+            .iter()
+            .map(|p| update::Asset {
+                path: (*p).into(),
+                url: "https://example.com/asset".into(),
+                bytes: 10,
+                sha256: "0".repeat(64),
+            })
+            .collect(),
     }
 }
 fn signed(m: &update::Manifest, key: &SigningKey) -> Vec<u8> {
@@ -77,7 +73,7 @@ fn skill_update_preserves_user_edits_and_reports_actual_inventory() {
     fs::create_dir(&root).unwrap();
     let dir = tmp.path().join("skills");
     skills::install(&root, &dir).unwrap();
-    let p = dir.join("dyt-ashare-research/SKILL.md");
+    let p = dir.join("dyt-ashare/SKILL.md");
     fs::write(&p, b"my modified skill").unwrap();
     let result = skills::install(&root, &dir).unwrap();
     assert_eq!(result["pending"].as_array().unwrap().len(), 1);
@@ -90,6 +86,78 @@ fn skill_update_preserves_user_edits_and_reports_actual_inventory() {
             .iter()
             .any(|e| e["matches_installed_hash"] == false)
     );
+}
+
+#[test]
+fn bundled_skill_is_one_broad_ashare_router() {
+    assert_eq!(skills::BUNDLED.len(), 1);
+    assert_eq!(skills::BUNDLED[0].0, "dyt-ashare");
+    let text = skills::BUNDLED[0].1;
+    for term in [
+        "A股",
+        "information",
+        "analysis",
+        "coverage",
+        "minutes",
+        "analyze",
+    ] {
+        assert!(
+            text.to_ascii_lowercase()
+                .contains(&term.to_ascii_lowercase()),
+            "missing {term}"
+        );
+    }
+}
+
+#[test]
+fn detected_agent_destinations_include_universal_and_existing_agents() {
+    let tmp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(tmp.path().join(".claude")).unwrap();
+    fs::create_dir_all(tmp.path().join(".cursor")).unwrap();
+    let destinations = skills::destinations_for_test(tmp.path());
+    assert!(destinations.contains(&tmp.path().join(".agents/skills")));
+    assert!(destinations.contains(&tmp.path().join(".claude/skills")));
+    assert!(destinations.contains(&tmp.path().join(".cursor/skills")));
+}
+
+#[cfg(unix)]
+#[test]
+fn skill_install_does_not_follow_a_foreign_skill_folder_symlink() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("state");
+    let destination = tmp.path().join("skills");
+    let outside = tmp.path().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("SKILL.md"), b"foreign").unwrap();
+    fs::create_dir_all(&destination).unwrap();
+    std::os::unix::fs::symlink(&outside, destination.join("dyt-ashare")).unwrap();
+    let result = skills::install(&root, &destination).unwrap();
+    assert_eq!(
+        result["pending"][0]["reason"],
+        "foreign_or_symlinked_folder"
+    );
+    assert_eq!(fs::read(outside.join("SKILL.md")).unwrap(), b"foreign");
+}
+
+#[test]
+fn unchanged_legacy_skills_are_removed_during_unified_install() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("state");
+    let destination = tmp.path().join("skills");
+    let legacy = destination.join("dyt-ashare-research/SKILL.md");
+    fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+    fs::write(&legacy, b"legacy").unwrap();
+    fs::create_dir_all(&root).unwrap();
+    let registry =
+        json!({"entries":[{"path":legacy,"sha256":state::hash(b"legacy"),"version":"0.1.0"}]});
+    fs::write(
+        root.join("skills.json"),
+        serde_json::to_vec(&registry).unwrap(),
+    )
+    .unwrap();
+    let result = skills::install(&root, &destination).unwrap();
+    assert_eq!(result["migrated"][0]["reason"], "legacy_skill_removed");
+    assert!(!legacy.exists());
 }
 #[test]
 fn local_analysis_is_chronological_and_exposes_quality_problems() {
