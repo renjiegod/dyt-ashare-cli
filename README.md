@@ -24,7 +24,7 @@
 </div>
 
 > [!NOTE]
-> **开发预览说明**：本项目当前处于公开开发预览阶段。预编译版本、签名发布清单和一键安装源尚未公开发布；当前可用的安装方式是从源码编译。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
+> **开发预览说明**：本项目当前处于公开开发预览阶段。公开发布源提供签名预编译版本、一键安装脚本和统一 `dyt-ashare` Skill；当前 stable 通道提供 macOS Apple Silicon 与 Linux x86_64 资产。Windows MSVC 资产完成发布前，请不要把 Windows 安装命令当作可用入口。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
 
 ---
 
@@ -78,26 +78,28 @@ dytcn doctor
 
 ## 📦 安装指南
 
-当前公开可用的安装方式是从源码编译安装。预编译版本和一键安装脚本将在正式发布后补充。
-
-### 从源码编译安装
-
-如果你拥有 Rust 开发环境（需要 **Rust 1.88+**，使用 2024 Edition）：
+用户安装使用签名预编译包，不需要安装 Rust、Cargo、Python 或 C++ 运行库。当前 stable 通道支持 macOS Apple Silicon 和 Linux x86_64。
 
 ```bash
-# 克隆仓库
-git clone https://github.com/renjiegod/dyt-ashare-cli.git
-cd dyt-ashare-cli
+# macOS Apple Silicon 或 Linux x86_64
+curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
 
-# 本地编译并安装到 Cargo bin 目录
-cargo install --locked --path .
+# 将安装目录加入当前 shell 的 PATH
+export PATH="$HOME/.local/share/dyt-ashare/bin:$PATH"
 
 # 验证安装
 dytcn --version
 ```
 
-源码安装后运行 `dytcn skills install`，即可安装统一的 `dyt-ashare` Skill；发布安装脚本
-将在正式发布后提供同样的自动安装流程。
+安装脚本会下载目标平台的签名 manifest，校验 Ed25519 签名、字节数和 SHA256 后激活 CLI，并自动安装统一的 `dyt-ashare` Skill。首次安装会把源文件写入 `~/.agents/skills/dyt-ashare`；检测到 Claude Code、Codex、Cursor 等 Agent 目录时，会自动建立相对链接。
+
+安装完成后可检查版本、服务来源、更新状态和 Skill 状态：
+
+```bash
+dytcn doctor
+```
+
+Windows MSVC 资产尚未进入 stable 通道，PowerShell 安装入口将在对应预编译包发布后补充。
 
 ---
 
@@ -397,6 +399,8 @@ flowchart TD
 我们欢迎社区贡献！客户端代码遵循 Apollo GraphQL 与 Rust 官方最佳实践。
 
 ### 本地编译与验证
+
+以下命令仅用于仓库贡献者进行本地验证，不是用户安装方式。
 
 ```bash
 # 格式化代码校验
