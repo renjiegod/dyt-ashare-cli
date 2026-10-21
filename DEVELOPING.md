@@ -75,9 +75,12 @@ rewritten, the new binary must pass its `--version` smoke test and its bundled S
 match the manifest.
 
 The previous channel, a signed envelope with a seven day validity, was retired with release
-0.1.6. Clients older than 0.1.6 cannot update themselves any more and must run the installer
-again. Installed releases written by those older versions are still readable: their stored
-metadata is parsed as a legacy envelope and used for integrity checks and rollback.
+0.1.6 for the targets that were republished in the anchored format. Clients older than 0.1.6
+cannot update themselves any more and must run the installer again. Installed releases written
+by those older versions are still readable: their stored metadata is parsed as a legacy envelope
+and used for integrity checks and rollback. A target that has not been republished in the
+anchored format yet still serves the previous signed channel, and the installers accept both
+formats; publish that target in the anchored format to retire its signed channel.
 
 The production release origin is `https://data.doyoutrade.cloud`. Keep it as the `--base-url` origin
 for every package; do not use the GitHub Releases page as an asset base URL. Upload immutable

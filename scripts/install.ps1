@@ -28,8 +28,18 @@ $temp = Join-Path ([IO.Path]::GetTempPath()) ('dyt-ashare-' + [Guid]::NewGuid().
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
     $manifestPath = Join-Path $temp 'release.json'
-    Invoke-WebRequest -UseBasicParsing -Uri $ManifestUrl -OutFile $manifestPath -TimeoutSec 30 -MaximumRedirection 0
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $ManifestUrl -OutFile $manifestPath -TimeoutSec 30 -MaximumRedirection 0
+    }
+    catch {
+        # The anchored channel is the current format. A target that has not been
+        # republished in that format yet still serves the previous signed channel.
+        $ManifestUrl = $ManifestUrl.Replace("/channel-$target.json", "/stable-$target.json")
+        Invoke-WebRequest -UseBasicParsing -Uri $ManifestUrl -OutFile $manifestPath -TimeoutSec 30 -MaximumRedirection 0
+    }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    # The previous signed channel keeps its manifest inside a payload envelope.
+    if ($manifest.PSObject.Properties.Name -contains 'payload') { $manifest = $manifest.payload | ConvertFrom-Json }
     if ($manifest.target -ne $target) { throw 'Manifest target mismatch' }
     $asset = @($manifest.files | Where-Object path -eq 'dytcn.exe')
     if ($asset.Count -ne 1 -or $asset[0].bytes -gt 134217728) { throw 'Invalid bootstrap asset' }
