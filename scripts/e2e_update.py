@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Real two-version installation/update/rollback, using an isolated test trust key and HTTP server."""
-import functools, http.server, json, os, pathlib, shutil, subprocess, tempfile, threading
+import functools, http.server, json, os, pathlib, shutil, subprocess, tempfile, threading, time
 root=pathlib.Path(__file__).resolve().parent.parent
 openssl=os.getenv('DYT_OPENSSL','openssl')
 def call(args,**kwargs):return subprocess.run([str(x) for x in args],check=True,**kwargs)
@@ -67,6 +67,10 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
   cli('update','--manifest',str(out/'0.2.0'/target/'release.json'))
   assert cli('--version').stdout.strip()=='dytcn 0.2.0'
   assert edited.read_text()=='user owned change'
+  # The signed channel metadata must expire within the intended validity window.
+  signed_payload=json.loads(json.loads((out/'0.2.0'/target/'release.json').read_text())['payload'])
+  remaining=signed_payload['expires_at']-int(time.time())
+  assert 6*86400 < remaining <= 7*86400, remaining
   doctor=json.loads(cli('doctor').stdout)
   assert doctor['updates']['installed']['version']=='0.2.0'
   assert doctor['skills_status']['pending']

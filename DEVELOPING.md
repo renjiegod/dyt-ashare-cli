@@ -41,7 +41,7 @@ OpenSSL 3 is needed only by packaging/tests, not by users. macOS LibreSSL is ins
 The production release origin is `https://data.doyoutrade.cloud`. Keep it as the `--base-url` origin
 for every package; do not use the GitHub Releases page as an asset base URL. Upload immutable
 `<version>/<target>/...` assets first, including `release.json`; then publish
-`stable-<target>.json` last. Signed payloads expire after 14 days; renew the signed channel
+`stable-<target>.json` last. Signed payloads expire after 7 days; renew the signed channel
 metadata before expiry, including when no binary changes. Refuse rewriting existing version
 assets. Host `install.ps1` and `install.sh` on the same trusted HTTPS origin. Distribution and
 backend deployment require a separately authorized release; repository CI never deploys HK.
