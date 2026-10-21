@@ -2,9 +2,10 @@
 
 Use an isolated worktree from fetched origin/main. Read [`RELEASE_SOP.md`](RELEASE_SOP.md) for
 the complete version, packaging, publication and post-release acceptance flow. `scripts/test.sh` runs format, Clippy and
-behavior tests. `scripts/e2e_update.py` builds two real CLI versions using an isolated test key,
-serves signed releases on loopback, installs, updates, preserves edited Skills, rejects a tampered
-manifest, rolls back and performs an unattended update. On Windows it uses the actual PowerShell
+behavior tests. `scripts/e2e_update.py` builds real CLI versions, serves an anchored release
+channel on loopback, installs, updates, preserves edited Skills, rejects a tampered manifest,
+rejects a missing anchor, rejects a corrupted asset, rolls back and performs an unattended
+update. On Windows it uses the actual PowerShell
 installer and verifies the registered scheduled task, then removes that task and temporary PATH.
 The acceptance recipe has passed on native Linux, macOS and Windows x64. GitHub Actions
 is currently disabled at the owner's request; automatic PR/main triggers are off and local
@@ -23,29 +24,67 @@ uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and th
 `dyt-ashare` Skill:
 
 ```sh
-DYT_OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
+python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
   --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
-  --key /secure/location/cn-ed25519.pem --out dist
+  --out dist
 ```
 
 The package script reads the release version from `Cargo.toml`; an explicit `--version` is
 optional and must match it. `scripts/check_release.py` fails the local gate when release code
 changes reach a branch without a package version bump.
 
-Use the matching Ed25519 private key for `release-public-key.hex`; never commit the private key.
-The release custodian generated the current key locally. A trust-key override
-`DYT_ASHARE_RELEASE_PUBLIC_KEY` is compile-time only, intended for isolated acceptance builds or
-planned product key rotation; an environment variable cannot replace trust in installed binaries.
-OpenSSL 3 is needed only by packaging/tests, not by users. macOS LibreSSL is insufficient.
+## The release channel
+
+The channel is one unsigned, content-addressed manifest per target, published at
+`https://data.doyoutrade.cloud/releases/dyt-ashare/channel-<target>.json`:
+
+```json
+{
+  "version": "0.1.6",
+  "target": "x86_64-unknown-linux-gnu",
+  "bootstrap_url": "https://data.doyoutrade.cloud/releases/dyt-ashare/0.1.6/x86_64-unknown-linux-gnu/dytcn",
+  "bootstrap_bytes": 4879144,
+  "bootstrap_sha256": "a33db69b…",
+  "files": [
+    {"path": "dytcn", "url": "…", "bytes": 4879144, "sha256": "a33db69b…"},
+    {"path": "skills/dyt-ashare/SKILL.md", "url": "…", "bytes": 5372, "sha256": "a709ae40…"}
+  ]
+}
+```
+
+There is no signature and no expiry. The client trusts the manifest only after the
+**repository anchor** pins its exact bytes: `<anchor base>/v<version>/releases/<version>/<target>.sha256`
+holds the SHA-256 of the manifest, and it is committed to this repository and published with the
+release tag `v<version>`. The anchor base is
+`https://raw.githubusercontent.com/renjiegod/dyt-ashare-cli` and can be overridden with the
+`DYT_ASHARE_ANCHOR_URL` environment variable; `DYT_ASHARE_RELEASE_URL` overrides the channel
+file itself. The anchor check is strict: an unreachable anchor, an unreadable anchor or a hash
+mismatch rejects the update, and there is no unanchored fallback.
+
+The trust root is therefore the repository anchor, not the release origin. Compromising the
+release origin alone can no longer install an unapproved client, because the origin would also
+have to serve a manifest whose bytes match the published anchor. Write access to this repository
+is the remaining trust dependency, and the release tag keeps the anchor of a published version
+immutable by convention.
+
+Everything else about a release is unchanged: the target must match the running binary, the
+version must be a clean semver, the file set must be exactly the executable and the bundled
+Skill, every asset carries its size and SHA-256 and must use HTTPS, the downloaded bytes must
+match the manifest, versions never move backwards, an installed version directory is never
+rewritten, the new binary must pass its `--version` smoke test and its bundled Skill hash must
+match the manifest.
+
+The previous channel, a signed envelope with a seven day validity, was retired with release
+0.1.6. Clients older than 0.1.6 cannot update themselves any more and must run the installer
+again. Installed releases written by those older versions are still readable: their stored
+metadata is parsed as a legacy envelope and used for integrity checks and rollback.
 
 The production release origin is `https://data.doyoutrade.cloud`. Keep it as the `--base-url` origin
 for every package; do not use the GitHub Releases page as an asset base URL. Upload immutable
 `<version>/<target>/...` assets first, including `release.json`; then publish
-`stable-<target>.json` last. Signed payloads expire after 7 days; renew the signed channel
-metadata before expiry, including when no binary changes. Refuse rewriting existing version
+`channel-<target>.json` last. Refuse rewriting existing version
 assets. Host `install.ps1` and `install.sh` on the same trusted HTTPS origin. Distribution and
 backend deployment require a separately authorized release; repository CI never deploys HK.
-Check the executable public key against the release key before publishing a production artifact.
 
 Native Windows package build should also inspect PE imports to confirm no VC redistributable is
 required, and test on a clean supported Windows installation. CI is runtime evidence on GitHub's
@@ -60,5 +99,5 @@ six hours. Rollback verifies stored signed metadata/hashes and pins auto-updates
 versions rather than deleting files still in use. Skills status and actual installed file hashes
 remain visible even when a CLI update succeeds but a Skill cannot be replaced. The canonical Skill
 is installed at `~/.agents/skills/dyt-ashare`; detected Agent directories use relative links to
-that file, so a signed update reaches every configured Agent without installing multiple domain
+that file, so an anchored update reaches every configured Agent without installing multiple domain
 Skills. Modified or foreign files stay in place and are reported as pending.

@@ -1,6 +1,5 @@
 use crate::{api, skills, state};
 use anyhow::{Context, Result, bail};
-use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
@@ -9,18 +8,17 @@ use std::{
     process::{Command, Stdio},
 };
 pub const TARGET: &str = env!("DYT_TARGET");
+pub const ANCHOR_BASE: &str = "https://raw.githubusercontent.com/renjiegod/dyt-ashare-cli";
+pub const RELEASE_BASE: &str = "https://data.doyoutrade.cloud/releases/dyt-ashare";
 
 const MAX_FILE: u64 = 128 * 1024 * 1024;
-#[derive(Serialize, Deserialize)]
-pub struct Envelope {
-    pub payload: String,
-    pub signature: String,
-}
+const MAX_ANCHOR: u64 = 4096;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Manifest {
     pub version: String,
     pub target: String,
-    pub expires_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
     pub files: Vec<Asset>,
 }
 #[derive(Serialize, Deserialize, Clone)]
@@ -45,17 +43,26 @@ struct Status {
 pub fn binary() -> &'static str {
     if cfg!(windows) { "dytcn.exe" } else { "dytcn" }
 }
-pub fn verify(raw: &[u8], public: &[u8; 32], target: &str, now: i64) -> Result<Manifest> {
-    let envelope: Envelope = serde_json::from_slice(raw)?;
-    let signature = Signature::from_slice(&hex::decode(envelope.signature)?)?;
-    VerifyingKey::from_bytes(public)?
-        .verify_strict(envelope.payload.as_bytes(), &signature)
-        .context("Release signature is invalid")?;
-    let m: Manifest = serde_json::from_str(&envelope.payload)?;
+/// The channel manifest is an unsigned, content-addressed description of a
+/// release. It is trusted only after the repository anchor pins its bytes.
+pub fn channel_manifest(raw: &[u8]) -> Result<Manifest> {
+    serde_json::from_slice(raw).context("Invalid release channel manifest")
+}
+
+/// Installed releases written before 0.1.6 are legacy signed envelopes. Their
+/// payload still describes the installed files, so integrity checks and
+/// rollback keep working without a trust key.
+pub fn installed_manifest(raw: &[u8]) -> Result<Manifest> {
+    let value: Value = serde_json::from_slice(raw).context("Invalid installed release metadata")?;
+    if let Some(payload) = value.get("payload").and_then(Value::as_str) {
+        return serde_json::from_str(payload).context("Invalid legacy release payload");
+    }
+    channel_manifest(raw)
+}
+pub fn validate_manifest(m: &Manifest, target: &str) -> Result<()> {
     let v = semver::Version::parse(&m.version)?;
-    if !v.pre.is_empty() || v.to_string() != m.version || m.target != target || m.expires_at <= now
-    {
-        bail!("Release target, stable version or expiry is invalid");
+    if !v.pre.is_empty() || v.to_string() != m.version || m.target != target {
+        bail!("Release target or version is invalid");
     }
     let expected = [binary().to_string(), "skills/dyt-ashare/SKILL.md".into()];
     let paths = m
@@ -76,19 +83,52 @@ pub fn verify(raw: &[u8], public: &[u8; 32], target: &str, now: i64) -> Result<M
         }
         state::secure_url(&url::Url::parse(&f.url)?)?;
     }
-    Ok(m)
+    Ok(())
 }
-fn public() -> Result<[u8; 32]> {
-    hex::decode(
-        option_env!("DYT_ASHARE_RELEASE_PUBLIC_KEY")
-            .unwrap_or(include_str!("../release-public-key.hex"))
-            .trim(),
-    )?
-    .try_into()
-    .map_err(|_| anyhow::anyhow!("Invalid embedded release key"))
+/// The repository anchor pins the exact channel bytes. A mismatch or an
+/// unreadable anchor rejects the update; there is no unanchored fallback.
+pub fn check_anchor(raw: &[u8], anchor: &[u8]) -> Result<()> {
+    let text = String::from_utf8_lossy(anchor);
+    let expected = text
+        .split_whitespace()
+        .next()
+        .context("Release anchor is empty")?;
+    if expected.len() != 64 || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
+        bail!("Release anchor is invalid");
+    }
+    if expected != state::hash(raw) {
+        bail!("Release channel anchor mismatch");
+    }
+    Ok(())
 }
-fn manifest(raw: &[u8]) -> Result<Manifest> {
-    verify(raw, &public()?, TARGET, chrono::Utc::now().timestamp())
+pub fn channel_url(target: &str) -> String {
+    std::env::var("DYT_ASHARE_RELEASE_URL")
+        .unwrap_or_else(|_| format!("{RELEASE_BASE}/channel-{target}.json"))
+}
+pub fn anchor_base() -> String {
+    std::env::var("DYT_ASHARE_ANCHOR_URL")
+        .ok()
+        .or_else(|| option_env!("DYT_ASHARE_ANCHOR_URL").map(str::to_owned))
+        .unwrap_or_else(|| ANCHOR_BASE.to_owned())
+}
+pub fn anchor_url(version: &str, target: &str) -> String {
+    format!(
+        "{}/v{version}/releases/{version}/{target}.sha256",
+        anchor_base()
+    )
+}
+fn verify_anchor(raw: &[u8], m: &Manifest, target: &str) -> Result<()> {
+    let url = url::Url::parse(&anchor_url(&m.version, target))?;
+    state::secure_url(&url)?;
+    let anchor = api::bytes(
+        api::http()?
+            .get(url)
+            .send()
+            .context("Release anchor is unavailable")?,
+        MAX_ANCHOR,
+    )
+    .map_err(|error| anyhow::anyhow!("Release anchor is unavailable: {error}"))?;
+    check_anchor(raw, &anchor)
 }
 fn version_dir(root: &Path, version: &str) -> Result<PathBuf> {
     let v = semver::Version::parse(version)?;
@@ -176,9 +216,10 @@ fn executable(path: &Path) -> Result<()> {
 }
 fn validate_installed(root: &Path, version: &str) -> Result<PathBuf> {
     let dir = version_dir(root, version)?;
-    // Expiry applies to accepting a release, not to continued offline use or rollback.
+    // Installed metadata is only read back for integrity; the channel trust
+    // decision happened when the release was accepted.
     let raw = fs::read(dir.join("release.json"))?;
-    let m = verify(&raw, &public()?, TARGET, 0)?;
+    let m = installed_manifest(&raw)?;
     if m.version != version {
         bail!("Installed release identity mismatch");
     }
@@ -190,7 +231,11 @@ fn validate_installed(root: &Path, version: &str) -> Result<PathBuf> {
     Ok(dir)
 }
 fn apply(root: &Path, raw: &[u8]) -> Result<Value> {
-    let m = manifest(raw)?;
+    let m = channel_manifest(raw)?;
+    validate_manifest(&m, TARGET)?;
+    // The channel manifest is only trusted once the repository anchor pins
+    // its exact bytes.
+    verify_anchor(raw, &m, TARGET)?;
     let current = active(root)?;
     if let Some(a) = &current
         && semver::Version::parse(&m.version)? <= semver::Version::parse(&a.version)?
@@ -290,10 +335,7 @@ pub fn run(root: &Path, source: Option<&Path>, background: bool) -> Result<Value
         let raw = if let Some(p) = source {
             fs::read(p)?
         } else {
-            let url = std::env::var("DYT_ASHARE_RELEASE_URL").unwrap_or_else(|_| {
-                format!("https://data.doyoutrade.cloud/releases/dyt-ashare/stable-{TARGET}.json")
-            });
-            let u = url::Url::parse(&url)?;
+            let u = url::Url::parse(&channel_url(TARGET))?;
             state::secure_url(&u)?;
             api::bytes(
                 api::http()?
@@ -394,5 +436,5 @@ pub fn background(root: &Path) {
     let _ = c.spawn();
 }
 pub fn status(root: &Path) -> Value {
-    json!({"installed":active(root).ok().flatten(),"checks":state::read::<Value>(&root.join("update-status.json")).ok(),"automatic_updates_enabled":!root.join("updates-disabled").exists(),"target":TARGET})
+    json!({"installed":active(root).ok().flatten(),"checks":state::read::<Value>(&root.join("update-status.json")).ok(),"automatic_updates_enabled":!root.join("updates-disabled").exists(),"target":TARGET,"channel":{"url":channel_url(TARGET),"anchor_base":anchor_base(),"verification":"sha256+anchor"}})
 }

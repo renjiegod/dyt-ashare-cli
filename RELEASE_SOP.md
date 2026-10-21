@@ -3,6 +3,10 @@
 这份 SOP 适用于每一次 CLI、内置 Skill、更新器或打包脚本发布。版本号是更新器的
 不可变身份；只改代码而不递增版本，客户端会按设计跳过该包。
 
+发布通道是**未签名的哈希清单 + 仓库锚点**：客户端只有在网上取到的通道清单字节与仓库
+里、随 `v<version>` 标签发布的锚点一致时才接受该发布。通道没有有效期，不需要私钥，
+也不需要定期重新签名。
+
 ## 1. 建立发布分支
 
 ```sh
@@ -34,7 +38,7 @@ cargo check
 
 因此发布代码漏改版本会在本地门禁阶段失败。
 
-## 3. 本地门禁和密钥检查
+## 3. 本地门禁
 
 ```sh
 scripts/test.sh
@@ -42,47 +46,61 @@ python3 scripts/e2e_update.py
 gitleaks git --redact --no-banner --log-opts='origin/main..HEAD'
 ```
 
-`e2e_update.py` 必须覆盖安装、更新、Skill 保留、签名清单篡改拒绝、回滚和后台更新。
-生产私钥只能从受控本地路径读取，不能进入仓库、命令行参数记录或构建产物。
-
-确认私钥派生出的 Ed25519 公钥与仓库中的 `release-public-key.hex` 一致，并使用
-OpenSSL 3：
-
-```sh
-OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
-$OPENSSL pkey -in "$RELEASE_KEY" -pubout -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n'
-cat release-public-key.hex
-```
-
-两行必须完全一致。
+`e2e_update.py` 必须覆盖安装、更新、Skill 保留、清单篡改拒绝、锚点缺失拒绝、资产损坏
+拒绝、回滚和后台更新。仓库里不再有发布私钥，因此不再需要 OpenSSL。
 
 ## 4. 构建并打包
 
 每个支持目标都执行 `cargo build --release --locked --target <target>`，然后让打包脚本
-从 Cargo 版本自动生成签名清单：
+生成通道清单与仓库锚点：
 
 ```sh
-DYT_OPENSSL="$OPENSSL" python3 scripts/package.py \
+python3 scripts/package.py \
   --binary target/<target>/release/dytcn \
   --target <target> \
   --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
-  --key "$RELEASE_KEY" \
   --out dist
 ```
 
-检查 `dist/<version>/<target>/release.json` 和 `dist/stable-<target>.json`：payload
-版本、目标平台、文件大小和 SHA256 必须与产物一致；清单中的 URL 必须仍指向
-`data.doyoutrade.cloud`。
+打包脚本输出：
 
-## 5. 发布顺序
+* `dist/<version>/<target>/`：不可变产物（`dytcn`、`skills/dyt-ashare/SKILL.md`）与
+  `release.json`（通道清单本身）；
+* `dist/channel-<target>.json`：客户端读取的通道清单；
+* `dist/releases/<version>/<target>.sha256`：仓库锚点，内容是清单字节的 SHA-256；
+* `dist/install.sh`、`dist/install.ps1`：引导安装器。
+
+清单是确定性的：同样的产物永远得到同样的字节和同样的锚点。发布前核对
+`dist/<version>/<target>/release.json` 与 `dist/channel-<target>.json` 字节一致，锚点文件
+里的摘要等于清单的 SHA-256，清单里的 URL 必须仍指向 `data.doyoutrade.cloud`。
+
+## 5. 发布锚点并打标签
+
+锚点是通道信任的根，必须在发布清单之前进入仓库：
+
+```sh
+mkdir -p releases/<version>
+cp dist/releases/<version>/<target>.sha256 releases/<version>/
+git add releases/<version>
+git commit -m "chore: publish the <version> release channel anchors"
+scripts/land.sh
+git tag v<version>
+git push origin v<version>
+```
+
+客户端按 `<anchor base>/v<version>/releases/<version>/<target>.sha256` 取锚点。标签是
+锚点的不可变引用；不要移动或覆盖已发布的标签。
+
+## 6. 发布顺序
 
 先上传不可变的 `<version>/<target>/` 目录（包括二进制、Skill 和 `release.json`），
-再上传对应的 `stable-<target>.json`。稳定清单必须最后发布，避免客户端先看到清单而
+再上传 `channel-<target>.json`。通道清单必须最后发布，避免客户端先看到清单而
 下载不到资产。禁止覆盖已经发布的版本目录。
 
-签名清单有效期为 7 天；到期前即使没有二进制变化，也要重新签名并更新稳定清单。
+同时删除已退役的 `stable-<target>.json`：0.1.5 及更早的客户端只能解析旧的签名信封，
+保留旧通道只会让它们反复尝试更新。
 
-## 6. 发布后验收
+## 7. 发布后验收
 
 至少使用一台仍在旧版本的隔离安装目录：
 
@@ -92,12 +110,13 @@ DYT_ASHARE_HOME="$HOME/.local/share/dyt-ashare-acceptance" dytcn --version
 DYT_ASHARE_HOME="$HOME/.local/share/dyt-ashare-acceptance" dytcn doctor
 ```
 
-核对 `updated: true`、新版本号、激活二进制路径和 Skill 版本。随后用无凭据的隔离
-home 调用一次 `coverage` 或 `minutes`，确认游客查询走线上新 CLI；再用已认证路径确认
-需要账号的 `sync` 仍然拒绝无凭据调用。最后记录稳定清单、二进制 SHA256、源代码 SHA、
+核对 `updated: true`、新版本号、激活二进制路径、Skill 版本，以及 `doctor` 里
+`updates.channel.verification` 为 `sha256+anchor`。随后用无凭据的隔离 home 调用一次
+`coverage` 或 `minutes`，确认游客查询走线上新 CLI；再用已认证路径确认需要账号的
+`sync` 仍然拒绝无凭据调用。最后记录通道清单、锚点、二进制 SHA-256、源代码 SHA、
 目标平台和验收时间。
 
-## 7. 合并和回滚
+## 8. 合并和回滚
 
 提交前再次运行 `scripts/test.sh` 和 secret scan，然后按仓库 `AGENTS.md` 使用
 `scripts/land.sh` 创建并合并 PR。线上异常时先保留已发布版本目录，使用客户端
