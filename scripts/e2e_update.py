@@ -32,6 +32,7 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
    call(['python3' if os.name!='nt' else 'python',root/'scripts/package.py','--binary',t/'target/debug'/exe,'--target',target,'--version',version,'--base-url',base,'--key',key,'--out',out])
   assert (out/'install.sh').exists()
   assert (out/'install.ps1').exists()
+  assert (out/version/target/exe).stat().st_mode & 0o111 or os.name == 'nt'
   user_home=t/'user-home'; user_home.mkdir()
   # Existing agent roots exercise the canonical file plus adapter links.
   for agent in ['.claude', '.codex', '.cursor']:
