@@ -32,10 +32,16 @@ case "$(uname -s)/$(uname -m)" in
  *) echo 'Unsupported platform; download a compatible portable bundle.' >&2; exit 1;;
 esac
 command -v curl >/dev/null || { echo 'First installation needs curl or use the portable binary.' >&2; exit 1; }
-task_url="${DYT_ASHARE_RELEASE_URL:-https://data.doyoutrade.cloud/releases/dyt-ashare/channel-$target.json}"
+release_base="https://data.doyoutrade.cloud/releases/dyt-ashare"
+task_url="${DYT_ASHARE_RELEASE_URL:-$release_base/channel-$target.json}"
 task_tmp=$(mktemp -d)
 trap 'rm -rf "$task_tmp"' EXIT HUP INT TERM
-curl --proto '=https' --tlsv1.2 -fL --max-redirs 0 "$task_url" -o "$task_tmp/release.json"
+# The anchored channel is the current format. A target that has not been
+# republished in that format yet still serves the previous signed channel.
+if ! curl --proto '=https' --tlsv1.2 -fL --max-redirs 0 "$task_url" -o "$task_tmp/release.json"; then
+  task_url="$release_base/stable-$target.json"
+  curl --proto '=https' --tlsv1.2 -fL --max-redirs 0 "$task_url" -o "$task_tmp/release.json"
+fi
 json_string() { sed -n -E "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\1/p" "$task_tmp/release.json"; }
 json_number() { sed -n -E "s/.*\"$1\"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p" "$task_tmp/release.json"; }
 file_bytes() { wc -c < "$1" | tr -d '[:space:]'; }
