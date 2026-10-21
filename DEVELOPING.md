@@ -18,7 +18,8 @@ self-service signup and payment processing are separate follow-ups; the admin Gi
 must not be treated as customer login.
 
 For each target, build with `cargo build --release --locked --target <target>` (Windows MSVC
-uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and two Skills:
+uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and the single routed
+`dyt-ashare` Skill:
 
 ```sh
 python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
@@ -52,4 +53,7 @@ immutable; running processes retain their old images. Update lock serializes wri
 records last attempt/success/error, offline failures retry after one hour, successful checks after
 six hours. Rollback verifies stored signed metadata/hashes and pins auto-updates. Retain previous
 versions rather than deleting files still in use. Skills status and actual installed file hashes
-remain visible even when a CLI update succeeds but a Skill cannot be replaced.
+remain visible even when a CLI update succeeds but a Skill cannot be replaced. The canonical Skill
+is installed at `~/.agents/skills/dyt-ashare`; detected Agent directories use relative links to
+that file, so a signed update reaches every configured Agent without installing multiple domain
+Skills. Modified or foreign files stay in place and are reported as pending.

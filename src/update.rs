@@ -1,4 +1,4 @@
-use crate::{api, state};
+use crate::{api, skills, state};
 use anyhow::{Context, Result, bail};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
@@ -57,11 +57,7 @@ pub fn verify(raw: &[u8], public: &[u8; 32], target: &str, now: i64) -> Result<M
     {
         bail!("Release target, stable version or expiry is invalid");
     }
-    let expected = [
-        binary().to_string(),
-        "skills/dyt-ashare-research/SKILL.md".into(),
-        "skills/dyt-ashare-quality/SKILL.md".into(),
-    ];
+    let expected = [binary().to_string(), "skills/dyt-ashare/SKILL.md".into()];
     let paths = m
         .files
         .iter()
@@ -199,7 +195,9 @@ fn apply(root: &Path, raw: &[u8]) -> Result<Value> {
     if let Some(a) = &current
         && semver::Version::parse(&m.version)? <= semver::Version::parse(&a.version)?
     {
-        return Ok(json!({"updated":false,"installed":a.version}));
+        let refreshed = skills::refresh(root)
+            .unwrap_or_else(|error| json!({"error":format!("skills_refresh_failed: {error}")}));
+        return Ok(json!({"updated":false,"installed":a.version,"skills":refreshed}));
     }
     let versions = root.join("versions");
     fs::create_dir_all(&versions)?;

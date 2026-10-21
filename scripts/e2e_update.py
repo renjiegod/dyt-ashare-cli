@@ -30,7 +30,11 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
    # Version-only package changes update the lockfile in this disposable copy.
    call(['cargo','build','--quiet'],cwd=source,env=buildenv)
    call(['python3' if os.name!='nt' else 'python',root/'scripts/package.py','--binary',t/'target/debug'/exe,'--target',target,'--version',version,'--base-url',base,'--key',key,'--out',out])
-  env=dict(os.environ,DYT_ASHARE_HOME=str(t/'installed'),DYT_ASHARE_NO_UPDATE='1')
+  user_home=t/'user-home'; user_home.mkdir()
+  # Existing agent roots exercise the canonical file plus adapter links.
+  for agent in ['.claude', '.codex', '.cursor']:
+   (user_home/agent).mkdir()
+  env=dict(os.environ,DYT_ASHARE_HOME=str(t/'installed'),DYT_ASHARE_NO_UPDATE='1',HOME=str(user_home),USERPROFILE=str(user_home),CODEX_HOME=str(user_home/'.codex'))
   launcher=t/'installed/bin'/exe
   bootstrap=out/'0.1.0'/target/exe
   if os.name!='nt':bootstrap.chmod(0o755)
@@ -41,11 +45,15 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
    return p
   if os.name=='nt':
    # Exercise the actual PowerShell installer, including user PATH and scheduled task registration.
-   call(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File',root/'scripts/install.ps1','-ManifestUrl',f'{base}/0.1.0/{target}/release.json','-NoSkills'],env=env)
+   call(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File',root/'scripts/install.ps1','-ManifestUrl',f'{base}/0.1.0/{target}/release.json'],env=env)
   else:call([bootstrap,'update','--manifest',out/'0.1.0'/target/'release.json'],env=env)
   assert cli('--version').stdout.strip()=='dytcn 0.1.0'
-  skills=t/'user-skills';cli('skills','install','--dir',str(skills))
-  edited=skills/'dyt-ashare-research/SKILL.md';edited.write_text('user owned change')
+  canonical=user_home/'.agents/skills/dyt-ashare/SKILL.md'
+  assert canonical.exists(), canonical
+  assert (user_home/'.claude/skills/dyt-ashare/SKILL.md').exists()
+  assert (user_home/'.codex/skills/dyt-ashare/SKILL.md').exists()
+  assert (user_home/'.cursor/skills/dyt-ashare/SKILL.md').exists()
+  edited=canonical;edited.write_text('user owned change')
   cli('update','--manifest',str(out/'0.2.0'/target/'release.json'))
   assert cli('--version').stdout.strip()=='dytcn 0.2.0'
   assert edited.read_text()=='user owned change'
