@@ -17,7 +17,8 @@
   <a href="#-ai-agent-深度赋能">Agent Skills</a> •
   <a href="#-核心命令详解">命令参考</a> •
   <a href="#-a-股交易特性与数据契约规范">数据规范</a> •
-  <a href="#-高级配置与环境变量">配置说明</a>
+  <a href="#-高级配置与环境变量">配置说明</a> •
+  <a href="#-联系与合作">联系与合作</a>
 </p>
 
 </div>
@@ -466,6 +467,26 @@ bash scripts/test.sh
 ```
 
 关于完整的 Ed25519 签名发布打包、多架构交叉编译、Windows MSVC 静态 CRT 链接与端到端更新测试细节，请参阅 [DEVELOPING.md](DEVELOPING.md)。
+
+---
+
+## 📬 联系与合作
+
+欢迎关注小红书 **renjiegod**，交流 A 股数据研究、量化工具与 AI Agent 实践，了解项目更新与使用技巧。
+
+| 联系方式 | 说明 |
+|:---|:---|
+| **合作邮箱** | [297910962@qq.com](mailto:297910962@qq.com)，欢迎交流数据工具集成、AI Agent 接入、技术合作与功能扩展需求。 |
+| **小红书** | **renjiegod**（小红书号：`18425751543`），使用小红书扫描下方二维码，或搜索小红书号关注。 |
+| **问题反馈 / 功能建议** | [提交 GitHub Issue](https://github.com/renjiegod/dyt-ashare-cli/issues)，方便公开讨论与跟踪进展。 |
+
+<p align="center">
+  <img src="assets/xiaohongshu-renjiegod.jpg" alt="小红书 renjiegod 主页二维码，小红书号 18425751543" width="280" />
+  <br />
+  <sub>扫码关注小红书 · renjiegod</sub>
+</p>
+
+如果这个项目对你有帮助，欢迎点亮 **Star**、分享给有需要的朋友，或通过 Issue / PR 参与改进。
 
 ---
 
