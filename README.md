@@ -50,11 +50,17 @@
 # macOS Apple Silicon 或 Linux x86_64
 curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
 
-# 将安装目录加入当前 shell 的 PATH
-export PATH="$HOME/.local/share/dyt-ashare/bin:$PATH"
+# 安装器会将目录写入当前 Shell 配置；重新加载当前 shell
+exec $SHELL
 
 # 验证安装
 dytcn --version
+```
+
+如需保持安装器不修改 shell 配置，可使用：
+
+```bash
+curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh -s -- --no-modify-path
 ```
 
 安装脚本会下载目标平台的签名 manifest，校验 Ed25519 签名、字节数和 SHA256 后激活 CLI，并自动安装统一的 `dyt-ashare` Skill。首次安装会把源文件写入 `~/.agents/skills/dyt-ashare`；检测到 Claude Code、Codex、Cursor 等 Agent 目录时，会自动建立相对链接。
