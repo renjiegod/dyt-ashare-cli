@@ -5,6 +5,10 @@ try:
     import tomllib
 except ModuleNotFoundError:
     tomllib = None
+# Signed channel metadata stays valid for seven days. A leaked signing key is
+# therefore usable for at most a week, and the stable manifest has to be
+# re-signed and re-uploaded before it expires even when no binary changed.
+VALIDITY_SECONDS=7*86400
 p=argparse.ArgumentParser()
 p.add_argument('--binary',required=True,type=pathlib.Path)
 p.add_argument('--target',required=True)
@@ -36,7 +40,7 @@ for name in ['install.sh', 'install.ps1']:
  src=root/'scripts'/name
  dest=a.out/name
  shutil.copy2(src,dest)
-payload=json.dumps(dict(version=version,target=a.target,expires_at=int(time.time())+14*86400,files=files),separators=(',',':'),ensure_ascii=False)
+payload=json.dumps(dict(version=version,target=a.target,expires_at=int(time.time())+VALIDITY_SECONDS,files=files),separators=(',',':'),ensure_ascii=False)
 with tempfile.TemporaryDirectory() as tmp:
  plain=pathlib.Path(tmp)/'payload';sig=pathlib.Path(tmp)/'signature';plain.write_bytes(payload.encode())
  subprocess.run([os.getenv('DYT_OPENSSL','openssl'),'pkeyutl','-sign','-rawin','-inkey',str(a.key),'-in',str(plain),'-out',str(sig)],check=True)
