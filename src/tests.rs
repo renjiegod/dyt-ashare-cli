@@ -1,5 +1,4 @@
 use super::*;
-use ed25519_dalek::{Signer, SigningKey};
 #[test]
 fn origin_credentials_paths_and_transport_are_restricted() {
     for s in [
@@ -20,57 +19,46 @@ fn api_load_without_credentials_uses_guest_mode() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(api::Api::load(tmp.path(), Some("http://127.0.0.1:8080")).is_ok());
 }
-fn release() -> update::Manifest {
-    update::Manifest {
-        version: "0.1.0".into(),
-        target: update::TARGET.into(),
-        expires_at: 200,
-        files: [update::binary(), "skills/dyt-ashare/SKILL.md"]
-            .iter()
-            .map(|p| update::Asset {
-                path: (*p).into(),
-                url: "https://example.com/asset".into(),
-                bytes: 10,
-                sha256: "0".repeat(64),
-            })
-            .collect(),
-    }
-}
-fn signed(m: &update::Manifest, key: &SigningKey) -> Vec<u8> {
-    let payload = serde_json::to_string(m).unwrap();
-    let signature = hex::encode(key.sign(payload.as_bytes()).to_bytes());
-    serde_json::to_vec(&update::Envelope { payload, signature }).unwrap()
-}
 #[test]
-fn release_trust_checks_reject_tampering_wrong_target_expiry_and_traversal() {
-    let key = SigningKey::from_bytes(&[7; 32]);
-    let public = key.verifying_key().to_bytes();
-    let mut m = release();
-    assert!(update::verify(&signed(&m, &key), &public, update::TARGET, 100).is_ok());
-    assert!(update::verify(&signed(&m, &key), &public, "wrong", 100).is_err());
-    assert!(update::verify(&signed(&m, &key), &public, update::TARGET, 201).is_err());
-    assert!(
-        update::verify(
-            &signed(&m, &key),
-            &SigningKey::from_bytes(&[8; 32]).verifying_key().to_bytes(),
-            update::TARGET,
-            100
-        )
-        .is_err()
-    );
-    let mut raw: Value = serde_json::from_slice(&signed(&m, &key)).unwrap();
-    raw["payload"] = json!(raw["payload"].as_str().unwrap().replace("0.1.0", "9.1.0"));
-    assert!(
-        update::verify(
-            &serde_json::to_vec(&raw).unwrap(),
-            &public,
-            update::TARGET,
-            100
-        )
-        .is_err()
-    );
-    m.files[0].path = "../../escape".into();
-    assert!(update::verify(&signed(&m, &key), &public, update::TARGET, 100).is_err());
+fn release_channel_rejects_tampering_wrong_target_bad_assets_and_path_escape() {
+    let digest = "0".repeat(64);
+    let asset = |path: &str, url: &str, sha: &str| json!({"path": path, "url": url, "bytes": 10, "sha256": sha});
+    let base = update::Manifest {
+        version: "0.1.6".into(),
+        target: "x86_64-unknown-linux-gnu".into(),
+        expires_at: None,
+        files: vec![
+            serde_json::from_value(asset(
+                "dytcn",
+                "https://data.doyoutrade.cloud/dytcn",
+                &digest,
+            ))
+            .unwrap(),
+            serde_json::from_value(asset(
+                "skills/dyt-ashare/SKILL.md",
+                "https://data.doyoutrade.cloud/skill.md",
+                &digest,
+            ))
+            .unwrap(),
+        ],
+    };
+    assert!(update::validate_manifest(&base, "x86_64-unknown-linux-gnu").is_ok());
+    assert!(update::validate_manifest(&base, "aarch64-apple-darwin").is_err());
+    let mut escape = base.clone();
+    escape.files[0].path = "../../escape".into();
+    assert!(update::validate_manifest(&escape, "x86_64-unknown-linux-gnu").is_err());
+    let mut insecure = base.clone();
+    insecure.files[0].url = "http://example.com/dytcn".into();
+    assert!(update::validate_manifest(&insecure, "x86_64-unknown-linux-gnu").is_err());
+    let mut broken = base.clone();
+    broken.files[0].sha256 = "not-a-hash".into();
+    assert!(update::validate_manifest(&broken, "x86_64-unknown-linux-gnu").is_err());
+    let mut prerelease = base.clone();
+    prerelease.version = "0.1.6-rc.1".into();
+    assert!(update::validate_manifest(&prerelease, "x86_64-unknown-linux-gnu").is_err());
+    let mut empty = base.clone();
+    empty.files[0].bytes = 0;
+    assert!(update::validate_manifest(&empty, "x86_64-unknown-linux-gnu").is_err());
 }
 #[test]
 fn skill_update_preserves_user_edits_and_reports_actual_inventory() {
@@ -128,6 +116,69 @@ fn bundled_skill_guides_toward_an_api_key_without_forcing_one() {
     ] {
         assert!(text.contains(term), "missing {term}");
     }
+}
+
+#[test]
+fn channel_manifest_parses_the_flat_format_without_signature_or_expiry() {
+    let raw = br#"{"version":"0.1.6","target":"x86_64-unknown-linux-gnu","bootstrap_url":"https://data.doyoutrade.cloud/releases/dyt-ashare/0.1.6/x86_64-unknown-linux-gnu/dytcn","bootstrap_bytes":10,"bootstrap_sha256":"0000000000000000000000000000000000000000000000000000000000000000","files":[{"path":"dytcn","url":"https://data.doyoutrade.cloud/releases/dyt-ashare/0.1.6/x86_64-unknown-linux-gnu/dytcn","bytes":10,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"},{"path":"skills/dyt-ashare/SKILL.md","url":"https://data.doyoutrade.cloud/releases/dyt-ashare/0.1.6/x86_64-unknown-linux-gnu/skills/dyt-ashare/SKILL.md","bytes":10,"sha256":"1111111111111111111111111111111111111111111111111111111111111111"}]}"#;
+    let m = update::channel_manifest(raw).unwrap();
+    assert_eq!(m.version, "0.1.6");
+    assert_eq!(m.expires_at, None);
+    assert_eq!(m.files.len(), 2);
+}
+
+#[test]
+fn legacy_installed_metadata_still_parses_for_rollback() {
+    let payload = "{\"version\":\"0.1.5\",\"target\":\"x86_64-unknown-linux-gnu\",\"expires_at\":1793201467,\"files\":[{\"path\":\"dytcn\",\"url\":\"https://example.com/dytcn\",\"bytes\":10,\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"}]}";
+    let envelope = json!({"payload": payload, "signature": "00"});
+    let m = update::installed_manifest(&serde_json::to_vec(&envelope).unwrap()).unwrap();
+    assert_eq!(m.version, "0.1.5");
+    assert_eq!(m.expires_at, Some(1793201467));
+}
+
+#[test]
+fn manifest_validation_rejects_a_wrong_target_and_a_broken_file_set() {
+    let asset = |path: &str| json!({"path": path, "url": "https://data.doyoutrade.cloud/x", "bytes": 10, "sha256": "0000000000000000000000000000000000000000000000000000000000000000"});
+    let m = update::Manifest {
+        version: "0.1.6".into(),
+        target: "x86_64-unknown-linux-gnu".into(),
+        expires_at: None,
+        files: vec![
+            serde_json::from_value(asset("dytcn")).unwrap(),
+            serde_json::from_value(asset("skills/dyt-ashare/SKILL.md")).unwrap(),
+        ],
+    };
+    assert!(update::validate_manifest(&m, "x86_64-unknown-linux-gnu").is_ok());
+    assert!(update::validate_manifest(&m, "aarch64-apple-darwin").is_err());
+    let mut short = m.clone();
+    short.files.pop();
+    assert!(update::validate_manifest(&short, "x86_64-unknown-linux-gnu").is_err());
+}
+
+#[test]
+fn anchor_comparison_accepts_only_the_exact_manifest_bytes() {
+    let raw = b"{\"version\":\"0.1.6\"}";
+    let digest = state::hash(raw);
+    assert!(
+        update::check_anchor(
+            raw,
+            format!("{digest}  channel-x86_64-unknown-linux-gnu.json\n").as_bytes()
+        )
+        .is_ok()
+    );
+    assert!(
+        update::check_anchor(
+            raw,
+            format!(
+                "{}  channel-x86_64-unknown-linux-gnu.json\n",
+                "0".repeat(64)
+            )
+            .as_bytes()
+        )
+        .is_err()
+    );
+    assert!(update::check_anchor(raw, b"").is_err());
+    assert!(update::check_anchor(raw, b"not-a-digest\n").is_err());
 }
 
 #[test]
