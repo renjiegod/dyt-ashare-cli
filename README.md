@@ -80,8 +80,9 @@ Windows MSVC 资产尚未进入 stable 通道，PowerShell 安装入口将在对
 以下是使用 `dytcn` 进行 A 股数据检索、质检与 AI 赋能的典型全流程：
 
 ```bash
-# 1. 可选：登录服务端账户（终端交互静默输入，密钥不入命令行历史）
-#    未登录也可以查询分钟线和覆盖度，但会受到游客限流和历史范围限制。
+# 1. 可选但推荐：登录服务端账户（终端交互静默输入，密钥不入命令行历史）
+#    未登录也可以查询分钟线和覆盖度，但会受到游客限流、每日配额和历史范围限制。
+#    批量查询、长历史窗口、sync 与 usage 需要登录。
 dytcn auth login
 
 # 2. 查询当前账户权益与服务配额余量
@@ -123,6 +124,7 @@ skills/
   - 对所有 A 股、沪深京股票、行情/历史信息、分钟线、覆盖度、数据质量、技术分析、研究和回测请求触发。
   - 在同一个入口内路由到 `usage`、`coverage`、`minutes`、`sync`、`analyze`、`doctor` 和认证流程，避免用户安装多个相互竞争的 Skill。
   - 强制使用 `.SH` / `.SZ` / `.BJ` 交易所后缀、保留不可变数据集哈希，并提醒原始价格变化不等于考虑公司行为和交易成本后的收益。
+  - 引导但不强制登录：先判断游客还是账号会话，游客限流时给出结构化错误码和下一步，同时保证游客查询本身照常可用。
 
 ### 2. 一键安装与适配支持
 
@@ -178,6 +180,46 @@ dytcn auth status
 # 清除本地保存的凭据
 dytcn auth logout
 ```
+
+#### 游客模式与账号模式
+
+游客模式**可用但受限**，服务端按 IP 维度强制执行以下限制：
+
+| 维度 | 游客模式（无 API Key） | 账号模式（已登录） |
+|:---|:---|:---|
+| 行情查询 `coverage` / `minutes` | 可用 | 可用 |
+| 历史范围 | 仅最近窗口（`earliest_allowed_date` 之后） | 取决于账户权益与套餐 |
+| 请求频率 | 服务端限流，超出即 `429` | 账户额度，见 `dytcn usage` |
+| 每日请求 / 行数 | 服务端配额 | 账户配额，见 `dytcn usage` |
+| `usage` / `sync` | 不可用（`401 invalid_api_key`） | 可用 |
+
+因此 **CLI 会主动引导但绝不强制**：游客请求照常成功，同时在 `auth status`、`doctor` 以及
+`coverage` / `minutes` 的 `auth` 字段中标注当前模式与下一步建议：
+
+```json
+{
+  "auth": {
+    "mode": "guest",
+    "earliest_allowed_date": "2026-09-21",
+    "notice": "Guest session: the server enforces a request rate limit, a daily request and row quota, and a limited history window. Run `dytcn auth login` for account quota and full history."
+  }
+}
+```
+
+触发限流时，错误以结构化 JSON 输出到 stderr，包含服务端错误码与可执行的下一步：
+
+```json
+{
+  "error": "HTTP 429: guest_daily_rate_limited",
+  "status": 429,
+  "code": "guest_daily_rate_limited",
+  "retry_after_seconds": 60,
+  "authenticated": false,
+  "hint": "Guest daily request quota is exhausted. Run `dytcn auth login` for account quota."
+}
+```
+
+密钥始终由用户在自己的终端交互输入，Agent 不索取、不接收、不落盘到仓库或脚本。
 
 ### 2. 权益与用量监控 (`dytcn usage`)
 

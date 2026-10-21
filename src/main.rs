@@ -145,17 +145,18 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
                     json!({"logged_out":true,"environment_key_set":std::env::var_os("DYT_ASHARE_API_KEY").or_else(|| std::env::var_os("DYT_CN_API_KEY")).is_some()}),
                 )
             }
-            Auth::Status => Ok(
-                json!({"stored_credentials":root.join("credentials.json").exists(),"environment_key_set":std::env::var_os("DYT_ASHARE_API_KEY").or_else(|| std::env::var_os("DYT_CN_API_KEY")).is_some()}),
-            ),
+            Auth::Status => Ok(auth_status(root)),
         },
         Commands::Usage => api()?.get("/v1/usage", &[]),
         Commands::Coverage { symbol, from, to } => {
             state::symbol(&symbol)?;
-            api()?.get(
+            let api = api()?;
+            let mut v = api.get(
                 "/v1/datasets",
                 &[("ts_code", &symbol), ("from", &from), ("to", &to)],
-            )
+            )?;
+            annotate_auth(&mut v, api.authenticated());
+            Ok(v)
         }
         Commands::Minutes {
             symbol,
@@ -166,7 +167,8 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
             state::symbol(&symbol)?;
             let from = minute_time(&from, false)?;
             let to = minute_time(&to, true)?;
-            let mut v = api()?.get(
+            let api = api()?;
+            let mut v = api.get(
                 "/v1/minutes",
                 &[
                     ("ts_code", &symbol),
@@ -177,6 +179,7 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
             )?;
             v["cli_version"] = json!(env!("CARGO_PKG_VERSION"));
             v["query"] = json!({"symbol":symbol,"from":from,"to":to,"frequency":freq});
+            annotate_auth(&mut v, api.authenticated());
             Ok(v)
         }
         Commands::Sync {
@@ -225,9 +228,50 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
             None => update::run(root, manifest.as_deref(), background),
         },
         Commands::Doctor => Ok(
-            json!({"cli_version":env!("CARGO_PKG_VERSION"),"executable":std::env::current_exe()?,"home":root,"service_origin":cli.api_url.unwrap_or_else(||"https://data.doyoutrade.cloud".into()),"updates":update::status(root),"skills":skills::inventory(root)?,"skills_status":state::read::<Value>(&root.join("skills-status.json")).ok(),"credentials_stored":root.join("credentials.json").exists()}),
+            json!({"cli_version":env!("CARGO_PKG_VERSION"),"executable":std::env::current_exe()?,"home":root,"service_origin":cli.api_url.unwrap_or_else(||"https://data.doyoutrade.cloud".into()),"updates":update::status(root),"skills":skills::inventory(root)?,"skills_status":state::read::<Value>(&root.join("skills-status.json")).ok(),"credentials_stored":root.join("credentials.json").exists(),"auth":auth_status(root)}),
         ),
     }
+}
+/// The session mode is a fact the caller needs: guest queries work, but the
+/// server caps them. The mode is reported, never enforced locally.
+fn auth_status(root: &std::path::Path) -> Value {
+    let stored = root.join("credentials.json").exists();
+    let environment = std::env::var_os("DYT_ASHARE_API_KEY")
+        .or_else(|| std::env::var_os("DYT_CN_API_KEY"))
+        .is_some();
+    let mode = if stored || environment {
+        "account"
+    } else {
+        "guest"
+    };
+    json!({
+        "mode": mode,
+        "stored_credentials": stored,
+        "environment_key_set": environment,
+        "guest_limits_apply": mode == "guest",
+        "next_step": if mode == "guest" {
+            "Guest access works without a key. The server limits guest request rate, daily requests and rows, and the history window. Run `dytcn auth login` for account quota and full history."
+        } else {
+            "Authenticated session. `dytcn usage` reports the account quota and `dytcn sync` is available."
+        },
+    })
+}
+
+/// Attach the session mode to a successful response so a guest answer explains
+/// its own limits without the caller having to ask for them.
+fn annotate_auth(value: &mut Value, authenticated: bool) {
+    let earliest = value
+        .get("earliest_allowed_date")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let mut block = json!({"mode": if authenticated { "account" } else { "guest" }});
+    if let Some(date) = earliest {
+        block["earliest_allowed_date"] = json!(date);
+    }
+    if !authenticated {
+        block["notice"] = json!(api::GUEST_NOTICE);
+    }
+    value["auth"] = block;
 }
 fn minute_time(raw: &str, end: bool) -> Result<String> {
     if raw.len() == 10 {
@@ -268,7 +312,18 @@ fn main() {
         Ok(())
     })();
     if let Err(e) = result {
-        eprintln!("{}", json!({"error":format!("{e:#}")}));
+        let payload = match e.downcast_ref::<api::ServiceError>() {
+            Some(service) => json!({
+                "error": service.to_string(),
+                "status": service.status,
+                "code": service.code,
+                "retry_after_seconds": service.retry_after_seconds,
+                "authenticated": service.authenticated,
+                "hint": service.hint(),
+            }),
+            None => json!({"error": format!("{e:#}")}),
+        };
+        eprintln!("{payload}");
         std::process::exit(1);
     }
 }

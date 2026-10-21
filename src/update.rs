@@ -210,7 +210,8 @@ fn apply(root: &Path, raw: &[u8]) -> Result<Value> {
                 .send()
                 .context("Release download failed")?,
             f.bytes,
-        )?;
+        )
+        .map_err(|error| anyhow::anyhow!("Release download failed: {error}"))?;
         if data.len() as u64 != f.bytes || state::hash(&data) != f.sha256 {
             bail!("Release asset checksum mismatch");
         }
@@ -300,7 +301,8 @@ pub fn run(root: &Path, source: Option<&Path>, background: bool) -> Result<Value
                     .send()
                     .context("Release service unavailable")?,
                 256 * 1024,
-            )?
+            )
+            .map_err(|error| anyhow::anyhow!("Release service unavailable: {error}"))?
         };
         apply(root, &raw)
     })();

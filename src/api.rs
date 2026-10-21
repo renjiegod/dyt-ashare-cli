@@ -13,6 +13,10 @@ use std::{
     time::Duration,
 };
 pub const LIMIT: u64 = 8 * 1024 * 1024;
+/// Guest sessions are server-limited, not client-limited. Every guest answer
+/// carries this notice so the caller can offer an API key without blocking the
+/// request that already succeeded.
+pub const GUEST_NOTICE: &str = "Guest session: the server enforces a request rate limit, a daily request and row quota, and a limited history window. Run `dytcn auth login` for account quota and full history.";
 #[derive(Serialize, Deserialize)]
 pub struct Credentials {
     pub origin: String,
@@ -23,6 +27,66 @@ pub struct Api {
     origin: url::Url,
     key: Option<String>,
 }
+/// A server refusal the caller can act on: the service code, the HTTP status,
+/// the retry window and one concrete next step. Guest limits are reported, not
+/// enforced locally.
+#[derive(Debug, Clone)]
+pub struct ServiceError {
+    pub status: u16,
+    pub code: String,
+    pub retry_after_seconds: Option<u64>,
+    pub authenticated: bool,
+}
+impl ServiceError {
+    pub fn authenticated(mut self, authenticated: bool) -> Self {
+        self.authenticated = authenticated;
+        self
+    }
+    pub fn hint(&self) -> &'static str {
+        match self.code.as_str() {
+            "guest_minute_rate_limited" => {
+                "Guest request rate limit hit. Wait for the refill or `dytcn auth login`."
+            }
+            "guest_daily_rate_limited" => {
+                "Guest daily request quota is exhausted. Run `dytcn auth login`."
+            }
+            "guest_rows_daily_limited" => {
+                "Guest daily row quota is exhausted. Narrow the range or `dytcn auth login`."
+            }
+            "guest_history_limit" => {
+                "Range starts before the guest history window. Narrow it or `dytcn auth login`."
+            }
+            "guest_access_disabled" => {
+                "Guest access is disabled. Run `dytcn auth login` to use an account key."
+            }
+            "guest_limiter_unavailable" | "guest_policy_unavailable" => {
+                "Server limiter unavailable. Retry later; a key does not change this."
+            }
+            "invalid_api_key" => "The service rejected the key. Run `dytcn auth login` again.",
+            "account_daily_quota_exceeded" => {
+                "Account daily request quota is exhausted. See `dytcn usage`."
+            }
+            "account_minute_quota_exceeded" => {
+                "Account per-minute quota is exhausted. Slow down and retry."
+            }
+            "account_concurrency_limit" | "minute_concurrency_limit" => {
+                "Account concurrency limit reached. Send fewer parallel requests."
+            }
+            "account_symbol_limit" => "Account symbol quota is exhausted. See `dytcn usage`.",
+            "account_data_quota_exceeded" => "Account data quota is exhausted. See `dytcn usage`.",
+            "history_plan_limit" => {
+                "The account plan does not cover this history range. Ask the operator."
+            }
+            _ => "Check `dytcn doctor`, `dytcn update status` and `dytcn usage`.",
+        }
+    }
+}
+impl std::fmt::Display for ServiceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HTTP {}: {}", self.status, self.code)
+    }
+}
+impl std::error::Error for ServiceError {}
 pub fn http() -> Result<Client> {
     Ok(Client::builder()
         .redirect(Policy::none())
@@ -30,30 +94,52 @@ pub fn http() -> Result<Client> {
         .user_agent(concat!("dyt-ashare/", env!("CARGO_PKG_VERSION")))
         .build()?)
 }
-pub fn bytes(mut r: Response, limit: u64) -> Result<Vec<u8>> {
-    if !r.status().is_success() {
-        let status = r.status();
+pub fn bytes(mut r: Response, limit: u64) -> Result<Vec<u8>, ServiceError> {
+    let status = r.status();
+    if !status.is_success() {
         let retry = r
             .headers()
             .get("retry-after")
             .and_then(|s| s.to_str().ok())
-            .unwrap_or("unspecified")
-            .to_owned();
+            .and_then(|s| s.trim().parse::<u64>().ok());
         let mut body = String::new();
-        r.take(8192).read_to_string(&mut body)?;
+        let _ = r.take(8192).read_to_string(&mut body);
         let code = serde_json::from_str::<Value>(&body)
             .ok()
             .and_then(|v| v["error"].as_str().map(str::to_owned))
             .unwrap_or_else(|| "request_failed".into());
-        bail!("HTTP {status}: {code}; retry_after_seconds={retry}");
+        return Err(ServiceError {
+            status: status.as_u16(),
+            code,
+            retry_after_seconds: retry,
+            authenticated: false,
+        });
     }
     if r.content_length().is_some_and(|n| n > limit) {
-        bail!("Response exceeds size limit");
+        return Err(ServiceError {
+            status: status.as_u16(),
+            code: "response_too_large".into(),
+            retry_after_seconds: None,
+            authenticated: false,
+        });
     }
     let mut data = Vec::new();
-    r.by_ref().take(limit + 1).read_to_end(&mut data)?;
+    r.by_ref()
+        .take(limit + 1)
+        .read_to_end(&mut data)
+        .map_err(|error| ServiceError {
+            status: status.as_u16(),
+            code: format!("response_read_failed: {error}"),
+            retry_after_seconds: None,
+            authenticated: false,
+        })?;
     if data.len() as u64 > limit {
-        bail!("Response exceeds size limit");
+        return Err(ServiceError {
+            status: status.as_u16(),
+            code: "response_too_large".into(),
+            retry_after_seconds: None,
+            authenticated: false,
+        });
     }
     Ok(data)
 }
@@ -92,6 +178,9 @@ impl Api {
             .or_else(|| creds.map(|c| c.key));
         Self::new(&origin, key)
     }
+    pub fn authenticated(&self) -> bool {
+        self.key.is_some()
+    }
     pub fn get(&self, path: &str, query: &[(&str, &str)]) -> Result<Value> {
         Ok(serde_json::from_slice(&self.raw(path, query)?)?)
     }
@@ -100,7 +189,8 @@ impl Api {
         if let Some(key) = &self.key {
             request = request.bearer_auth(key);
         }
-        bytes(request.send().context("Service request failed")?, LIMIT)
+        let response = request.send().context("Service request failed")?;
+        Ok(bytes(response, LIMIT).map_err(|error| error.authenticated(self.authenticated()))?)
     }
     fn download(&self, raw: &str) -> Result<Vec<u8>> {
         let u = self.origin.join(raw)?;
@@ -112,7 +202,8 @@ impl Api {
         {
             req = req.bearer_auth(key);
         }
-        bytes(req.send().context("Dataset download failed")?, LIMIT)
+        let response = req.send().context("Dataset download failed")?;
+        Ok(bytes(response, LIMIT).map_err(|error| error.authenticated(self.authenticated()))?)
     }
     pub fn sync(&self, symbol: &str, from: &str, to: &str, dir: &Path) -> Result<Value> {
         self.require_key("dytcn sync")?;
