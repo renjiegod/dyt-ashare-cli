@@ -17,6 +17,14 @@ for name,src in [('dytcn.exe' if 'windows' in a.target else 'dytcn',a.binary)]+[
  dest=prefix/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest)
  data=dest.read_bytes()
  files.append(dict(path=name,url=f'{a.base_url.rstrip("/")}/{a.version}/{a.target}/{name}',bytes=len(data),sha256=hashlib.sha256(data).hexdigest()))
+# The bootstrap installers are intentionally outside the signed per-target
+# manifest: they select the host target and then consume that manifest. Keep
+# them beside stable-*.json in the package output so a release upload cannot
+# accidentally omit the URLs advertised in README/DEVELOPING.md.
+for name in ['install.sh', 'install.ps1']:
+ src=root/'scripts'/name
+ dest=a.out/name
+ shutil.copy2(src,dest)
 payload=json.dumps(dict(version=a.version,target=a.target,expires_at=int(time.time())+14*86400,files=files),separators=(',',':'),ensure_ascii=False)
 with tempfile.TemporaryDirectory() as tmp:
  plain=pathlib.Path(tmp)/'payload';sig=pathlib.Path(tmp)/'signature';plain.write_bytes(payload.encode())
