@@ -30,6 +30,8 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
    # Version-only package changes update the lockfile in this disposable copy.
    call(['cargo','build','--quiet'],cwd=source,env=buildenv)
    call(['python3' if os.name!='nt' else 'python',root/'scripts/package.py','--binary',t/'target/debug'/exe,'--target',target,'--version',version,'--base-url',base,'--key',key,'--out',out])
+  assert (out/'install.sh').exists()
+  assert (out/'install.ps1').exists()
   user_home=t/'user-home'; user_home.mkdir()
   # Existing agent roots exercise the canonical file plus adapter links.
   for agent in ['.claude', '.codex', '.cursor']:
