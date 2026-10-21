@@ -6,9 +6,10 @@ description: Use DYT AShare whenever a request concerns China A-shares (Aè‚¡), è
 # DYT AShare routing skill
 
 This is the single entry point for A-share information lookup and analysis. Use the
-installed `dytcn` CLI and keep the command output as JSON. Before a large request,
-run `dytcn usage`; if authentication is missing, ask the user to run
-`dytcn auth login` locally. Never ask the user to send an API key in chat.
+installed `dytcn` CLI and keep the command output as JSON. `coverage` and `minutes`
+work without login under the server's guest policy. Run `dytcn usage` when account
+quota is relevant; run `dytcn auth login` before `sync` or account-only usage.
+Never ask the user to send an API key in chat.
 
 ## Route by intent
 
@@ -18,7 +19,7 @@ run `dytcn usage`; if authentication is missing, ask the user to run
 | Historical minute bars or a reproducible local dataset | Data retrieval | Use `dytcn minutes` for a window of at most 31 calendar days, or `dytcn sync` for immutable Parquet revisions. Prefer `--out` or `--dir` so the result can be inspected again. |
 | Missing bars, duplicates, invalid OHLCV, session completeness, or dataset provenance | Quality analysis | Run `dytcn analyze --input <minutes.json>` and report its quality fields, observed interval, row count, dataset IDs, and SHA256 values. |
 | Technical analysis, strategy research, or a backtest input | Research workflow | Retrieve and validate the exact immutable data first, then analyze it locally. Treat descriptive statistics as research evidence, not as a profitable strategy or a live trading signal. |
-| Quota, local installation, or version/update status | Account and environment | Use `dytcn usage`, `dytcn doctor`, or `dytcn auth status`; do not rotate keys to bypass quotas. |
+| Quota, local installation, or version/update status | Account and environment | Use `dytcn usage`, `dytcn doctor`, or `dytcn auth status`; guest limits are server-enforced and keys must not be rotated to bypass them. |
 
 ## A-share data rules
 
@@ -35,9 +36,9 @@ run `dytcn usage`; if authentication is missing, ask the user to run
 ## Safe command sequence
 
 ```text
-dytcn usage
 dytcn coverage --symbol 600000.SH --from YYYY-MM-DD --to YYYY-MM-DD
 dytcn minutes --symbol 600000.SH --from YYYY-MM-DD --to YYYY-MM-DD --out minutes.json
+dytcn usage                 # optional; requires login for account quota
 dytcn analyze --input minutes.json
 ```
 

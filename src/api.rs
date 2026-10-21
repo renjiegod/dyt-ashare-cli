@@ -21,7 +21,7 @@ pub struct Credentials {
 pub struct Api {
     client: Client,
     origin: url::Url,
-    key: String,
+    key: Option<String>,
 }
 pub fn http() -> Result<Client> {
     Ok(Client::builder()
@@ -58,7 +58,7 @@ pub fn bytes(mut r: Response, limit: u64) -> Result<Vec<u8>> {
     Ok(data)
 }
 impl Api {
-    pub fn new(origin: &str, key: String) -> Result<Self> {
+    pub fn new(origin: &str, key: Option<String>) -> Result<Self> {
         Ok(Self {
             client: http()?,
             origin: state::origin(origin)?,
@@ -88,35 +88,34 @@ impl Api {
         }
         let key = std::env::var("DYT_ASHARE_API_KEY")
             .ok()
-            .or_else(|| creds.map(|c| c.key))
-            .context("Run dytcn auth login locally, or set DYT_ASHARE_API_KEY")?;
+            .or_else(|| std::env::var("DYT_CN_API_KEY").ok())
+            .or_else(|| creds.map(|c| c.key));
         Self::new(&origin, key)
     }
     pub fn get(&self, path: &str, query: &[(&str, &str)]) -> Result<Value> {
         Ok(serde_json::from_slice(&self.raw(path, query)?)?)
     }
     pub fn raw(&self, path: &str, query: &[(&str, &str)]) -> Result<Vec<u8>> {
-        bytes(
-            self.client
-                .get(self.origin.join(path)?)
-                .bearer_auth(&self.key)
-                .query(query)
-                .send()
-                .context("Service request failed")?,
-            LIMIT,
-        )
+        let mut request = self.client.get(self.origin.join(path)?).query(query);
+        if let Some(key) = &self.key {
+            request = request.bearer_auth(key);
+        }
+        bytes(request.send().context("Service request failed")?, LIMIT)
     }
     fn download(&self, raw: &str) -> Result<Vec<u8>> {
         let u = self.origin.join(raw)?;
         state::secure_url(&u)?;
         let mut req = self.client.get(u.clone());
         // API credentials must never reach object storage or redirected URLs.
-        if u.origin() == self.origin.origin() {
-            req = req.bearer_auth(&self.key);
+        if u.origin() == self.origin.origin()
+            && let Some(key) = &self.key
+        {
+            req = req.bearer_auth(key);
         }
         bytes(req.send().context("Dataset download failed")?, LIMIT)
     }
     pub fn sync(&self, symbol: &str, from: &str, to: &str, dir: &Path) -> Result<Value> {
+        self.require_key("dytcn sync")?;
         state::symbol(symbol)?;
         let mut catalog = self.get(
             "/v1/datasets",
@@ -184,6 +183,13 @@ impl Api {
             json!({"catalog_path":fs::canonicalize(path)?,"catalog_sha256":state::hash(&serde_json::to_vec_pretty(&catalog)?),"downloaded":downloaded,"verified_skipped":skipped,"restricted_downloads":catalog["restricted_downloads"],"cli_version":env!("CARGO_PKG_VERSION")}),
         )
     }
+
+    fn require_key(&self, command: &str) -> Result<()> {
+        if self.key.is_none() {
+            bail!("{command} requires login; run dytcn auth login first");
+        }
+        Ok(())
+    }
 }
 pub fn login(root: &Path, origin: &str, key: String) -> Result<Value> {
     if !key.starts_with("ask_")
@@ -192,7 +198,7 @@ pub fn login(root: &Path, origin: &str, key: String) -> Result<Value> {
     {
         bail!("Invalid API key format");
     }
-    let api = Api::new(origin, key.clone())?;
+    let api = Api::new(origin, Some(key.clone()))?;
     let usage = api.get("/v1/usage", &[])?;
     state::save(
         &root.join("credentials.json"),
