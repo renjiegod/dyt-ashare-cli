@@ -14,7 +14,7 @@ prefix=a.out/a.version/a.target
 prefix.mkdir(parents=True,exist_ok=True)
 files=[]
 for name,src in [('dytcn.exe' if 'windows' in a.target else 'dytcn',a.binary)]+[(str(s.relative_to(root)).replace(os.sep,'/'),s) for s in sorted((root/'skills').glob('*/SKILL.md'))]:
- dest=prefix/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest)
+ dest=prefix/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dest)
  data=dest.read_bytes()
  files.append(dict(path=name,url=f'{a.base_url.rstrip("/")}/{a.version}/{a.target}/{name}',bytes=len(data),sha256=hashlib.sha256(data).hexdigest()))
 # The bootstrap installers are intentionally outside the signed per-target
