@@ -34,7 +34,7 @@
 |:---|:---|
 | **安装即用** | 单个预编译 CLI，无需配置 Python、Pandas 或 C++ 运行库；安装后自动配置 Skill。 |
 | **一个 Skill 覆盖 A 股工作流** | `dyt-ashare` 统一路由行情、历史分钟线、覆盖度、数据质量、技术分析和研究请求。 |
-| **Agent 原生适配** | 自动写入 canonical Skill，并为 Claude Code、Codex、Cursor、Windsurf、OpenCode 等目录建立链接。 |
+| **Agent 原生适配** | 自动写入 canonical Skill，并为 Claude Code、Codex、Cursor、Windsurf、OpenCode、WorkBuddy 等目录建立链接。 |
 | **结果可审计** | 数据集保留版本、字节数和 SHA256；分析结果带输入哈希、时间范围和质量指标。 |
 | **本地分析零额度** | 下载后的分钟数据可离线完成统计与质量检查，不额外消耗服务端配额。 |
 | **签名更新可回滚** | Ed25519 验签、原子激活、旧版本保留，更新失败自动回到可用版本。 |
@@ -63,7 +63,7 @@ dytcn --version
 curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh -s -- --no-modify-path
 ```
 
-安装脚本会下载目标平台的签名 manifest，校验 Ed25519 签名、字节数和 SHA256 后激活 CLI，并自动安装统一的 `dyt-ashare` Skill。首次安装会把源文件写入 `~/.agents/skills/dyt-ashare`；检测到 Claude Code、Codex、Cursor 等 Agent 目录时，会自动建立相对链接。
+安装脚本会下载目标平台的签名 manifest，校验 Ed25519 签名、字节数和 SHA256 后激活 CLI，并自动安装统一的 `dyt-ashare` Skill。首次安装会把源文件写入 `~/.agents/skills/dyt-ashare`；检测到 Claude Code、Codex、Cursor、WorkBuddy 等 Agent 目录时，会自动建立相对链接。
 
 安装完成后可检查版本、服务来源、更新状态和 Skill 状态：
 
@@ -137,7 +137,7 @@ dytcn skills install --dir ./.agents/skills
 ```
 
 支持即插即用的 AI 研发环境：
-- **Claude Code**、**Codex**、**Cursor**、**Windsurf**、**OpenCode**、**Gemini/Antigravity**、**Trae**、**Qwen**、**OpenClaw** 和 **Roo**（检测到对应用户目录时自动建立链接）。
+- **Claude Code**、**Codex**、**Cursor**、**Windsurf**、**OpenCode**、**Gemini/Antigravity**、**Trae**、**Qwen**、**OpenClaw**、**Roo** 和 **WorkBuddy**（检测到对应用户目录时自动建立链接）。WorkBuddy 写入 `~/.workbuddy-ai/skills`，可用 `WORKBUDDY_CONFIG_DIR` 改写；旧版 `~/.workbuddy` 同样生效。
 - canonical 文件只有一份，CLI 更新或回滚后会同步它；各 Agent 目录共享这份文件，用户编辑或外部目录会保留并出现在 `pending`。
 - 未检测到的 Agent 可使用 `dytcn skills install --dir <agent-skill-dir>` 显式接入；该命令写入一个目录并保留原有文件。
 

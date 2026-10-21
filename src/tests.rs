@@ -120,10 +120,36 @@ fn detected_agent_destinations_include_universal_and_existing_agents() {
     let tmp = tempfile::tempdir().unwrap();
     fs::create_dir_all(tmp.path().join(".claude")).unwrap();
     fs::create_dir_all(tmp.path().join(".cursor")).unwrap();
+    fs::create_dir_all(tmp.path().join(".workbuddy-ai")).unwrap();
     let destinations = skills::destinations_for_test(tmp.path());
     assert!(destinations.contains(&tmp.path().join(".agents/skills")));
     assert!(destinations.contains(&tmp.path().join(".claude/skills")));
     assert!(destinations.contains(&tmp.path().join(".cursor/skills")));
+    assert!(destinations.contains(&tmp.path().join(".workbuddy-ai/skills")));
+}
+
+#[test]
+fn workbuddy_destinations_require_an_existing_agent_root() {
+    let tmp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(tmp.path().join(".workbuddy")).unwrap();
+    let destinations = skills::destinations_for_test(tmp.path());
+    assert!(destinations.contains(&tmp.path().join(".workbuddy/skills")));
+    assert!(!destinations.contains(&tmp.path().join(".workbuddy-ai/skills")));
+}
+
+#[test]
+fn workbuddy_skill_is_linked_next_to_the_canonical_skill() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path();
+    let root = home.join("state");
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(home.join(".workbuddy-ai")).unwrap();
+    skills::install_for_test(&root, home).unwrap();
+    let canonical = home.join(".agents/skills/dyt-ashare/SKILL.md");
+    let linked = home.join(".workbuddy-ai/skills/dyt-ashare/SKILL.md");
+    assert!(canonical.exists());
+    assert!(linked.exists());
+    assert_eq!(fs::read(&canonical).unwrap(), fs::read(&linked).unwrap());
 }
 
 #[cfg(unix)]
