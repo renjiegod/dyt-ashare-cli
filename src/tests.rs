@@ -116,6 +116,95 @@ fn bundled_skill_is_one_broad_ashare_router() {
 }
 
 #[test]
+fn bundled_skill_guides_toward_an_api_key_without_forcing_one() {
+    let text = skills::BUNDLED[0].1;
+    for term in [
+        "dytcn auth login",
+        "dytcn auth status",
+        "guest",
+        "earliest_allowed_date",
+        "Never ask the user to send an API key in chat",
+        "work without login",
+    ] {
+        assert!(text.contains(term), "missing {term}");
+    }
+}
+
+#[test]
+fn service_errors_map_every_limit_to_a_next_step() {
+    for code in [
+        "guest_minute_rate_limited",
+        "guest_daily_rate_limited",
+        "guest_rows_daily_limited",
+        "guest_history_limit",
+        "guest_access_disabled",
+    ] {
+        let error = api::ServiceError {
+            status: 429,
+            code: code.into(),
+            retry_after_seconds: Some(60),
+            authenticated: false,
+        };
+        assert!(error.hint().contains("dytcn auth login"), "{code}");
+    }
+    let account = api::ServiceError {
+        status: 429,
+        code: "account_daily_quota_exceeded".into(),
+        retry_after_seconds: None,
+        authenticated: true,
+    };
+    assert!(account.hint().contains("dytcn usage"));
+    let rejected = api::ServiceError {
+        status: 401,
+        code: "invalid_api_key".into(),
+        retry_after_seconds: None,
+        authenticated: true,
+    };
+    assert!(rejected.hint().contains("dytcn auth login"));
+}
+
+#[test]
+fn auth_status_reports_the_session_mode_and_the_login_next_step() {
+    let tmp = tempfile::tempdir().unwrap();
+    let guest = auth_status(tmp.path());
+    assert_eq!(guest["stored_credentials"], false);
+    if std::env::var_os("DYT_ASHARE_API_KEY").is_none()
+        && std::env::var_os("DYT_CN_API_KEY").is_none()
+    {
+        assert_eq!(guest["mode"], "guest");
+        assert_eq!(guest["guest_limits_apply"], true);
+        assert!(
+            guest["next_step"]
+                .as_str()
+                .unwrap()
+                .contains("dytcn auth login")
+        );
+    }
+    fs::write(tmp.path().join("credentials.json"), b"{}").unwrap();
+    let account = auth_status(tmp.path());
+    assert_eq!(account["mode"], "account");
+    assert_eq!(account["guest_limits_apply"], false);
+}
+
+#[test]
+fn data_answers_expose_the_session_mode_and_the_guest_notice() {
+    let mut guest = json!({"items":[],"earliest_allowed_date":"2026-09-21"});
+    annotate_auth(&mut guest, false);
+    assert_eq!(guest["auth"]["mode"], "guest");
+    assert_eq!(guest["auth"]["earliest_allowed_date"], "2026-09-21");
+    assert!(
+        guest["auth"]["notice"]
+            .as_str()
+            .unwrap()
+            .contains("dytcn auth login")
+    );
+    let mut account = json!({"items":[]});
+    annotate_auth(&mut account, true);
+    assert_eq!(account["auth"]["mode"], "account");
+    assert!(account["auth"].get("notice").is_none());
+}
+
+#[test]
 fn detected_agent_destinations_include_universal_and_existing_agents() {
     let tmp = tempfile::tempdir().unwrap();
     fs::create_dir_all(tmp.path().join(".claude")).unwrap();
