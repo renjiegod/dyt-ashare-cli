@@ -4,11 +4,10 @@
 
 **面向 A 股高频分钟级历史数据研究与量化 AI Agent 的官方现代化 Rust 命令行工具**
 
-[![Status](https://img.shields.io/badge/status-development%20preview-orange.svg?style=flat-square)](https://github.com/renjiegod/dyt-ashare-cli)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B%20(2024)-orange.svg?style=flat-square)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 [![Security: Ed25519 Signed](https://img.shields.io/badge/security-Ed25519%20Signed-blueviolet.svg?style=flat-square)](#-安全机制与自愈更新体系)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg?style=flat-square)](#-安装指南)
+[![Platform](https://img.shields.io/badge/platform-macOS%20ARM64%20%7C%20Linux%20x86_64-lightgrey.svg?style=flat-square)](#-安装指南)
 [![Zero Dependency](https://img.shields.io/badge/dependencies-zero%20runtime-success.svg?style=flat-square)](#-核心亮点)
 
 <p align="center">
@@ -23,24 +22,23 @@
 
 </div>
 
-> [!NOTE]
-> **开发预览说明**：本项目当前处于公开开发预览阶段。公开发布源提供签名预编译版本、一键安装脚本和统一 `dyt-ashare` Skill；当前 stable 通道提供 macOS Apple Silicon 与 Linux x86_64 资产。Windows MSVC 资产完成发布前，请不要把 Windows 安装命令当作可用入口。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
+> **一句话定位**：A 股数据查询、分钟线分析、质量检查与 AI Agent 接入的一体化 CLI。安装一个 `dyt-ashare` Skill，就能覆盖从行情检索到研究分析的完整工作流。
 
 ---
 
 ## 🌟 核心亮点
 
-`dytcn` 专为量化研究员、算法交易员以及现代 AI Coding Agent 设计，解决传统 Python 数据脚本环境配置繁重、数据版本不可追溯、研究难以重现的痛点：
+`dytcn` 把数据、分析和 Agent 操作收进一个可验证、可更新的命令行工具：
 
-| 维度 | 传统 Python / 脚本下载方案 | ⚡ `dytcn` Rust 命令行工具 |
-|:---|:---|:---|
-| **环境依赖** | 需要安装 Python、Pandas、WSL 或 C++ 运行库 | **单个独立可执行程序**，零依赖，Windows 解压即用 |
-| **执行性能** | 启动缓慢、脚本解释开销大、内存占用高 | **纯 Rust 编写**，内存安全，微秒级启动，极速解析 |
-| **Agent 支持** | 需手写 Prompt 引导大模型拼接各种数据接口 | **原生内置单一 A 股路由 Skill**，自动适配已安装的 Agent（Claude / Cursor / Codex 等） |
-| **数据分析** | 分析必须编写专用脚本或依赖三方收费接口 | **本地离线零成本分析**，无需服务端配额，秒级输出统计与质检 |
-| **数据完整性** | 文件命名混乱、分发易篡改、版本难以重现 | **不可变 UUID + SHA256 校验和**，附带完整 Provenance 归档 |
-| **更新与安全** | 手动重新拉取仓库或依赖 pip，风险不可控 | **内置 Ed25519 密码学验签**、原子无缝更新与一键 Rollback |
-| **输出格式** | 文本混合日志，脚本解析容易报错 | **纯净 JSON-First 标准输出**，诊断归入 stderr，天生契合管道 |
+| 核心亮点 | 用户得到什么 |
+|:---|:---|
+| **安装即用** | 单个预编译 CLI，无需配置 Python、Pandas 或 C++ 运行库；安装后自动配置 Skill。 |
+| **一个 Skill 覆盖 A 股工作流** | `dyt-ashare` 统一路由行情、历史分钟线、覆盖度、数据质量、技术分析和研究请求。 |
+| **Agent 原生适配** | 自动写入 canonical Skill，并为 Claude Code、Codex、Cursor、Windsurf、OpenCode 等目录建立链接。 |
+| **结果可审计** | 数据集保留版本、字节数和 SHA256；分析结果带输入哈希、时间范围和质量指标。 |
+| **本地分析零额度** | 下载后的分钟数据可离线完成统计与质量检查，不额外消耗服务端配额。 |
+| **签名更新可回滚** | Ed25519 验签、原子激活、旧版本保留，更新失败自动回到可用版本。 |
+| **JSON 优先** | stdout 输出结构化 JSON，错误和诊断写入 stderr，适合脚本、CI 和 Agent 调用。 |
 
 ---
 
