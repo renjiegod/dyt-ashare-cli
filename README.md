@@ -13,8 +13,8 @@
 
 <p align="center">
   <a href="#-核心亮点">核心亮点</a> •
-  <a href="#-快速上手">快速上手</a> •
   <a href="#-安装指南">安装指南</a> •
+  <a href="#-快速上手">快速上手</a> •
   <a href="#-ai-agent-深度赋能">Agent Skills</a> •
   <a href="#-核心命令详解">命令参考</a> •
   <a href="#-a-股交易特性与数据契约规范">数据规范</a> •
@@ -41,6 +41,33 @@
 | **数据完整性** | 文件命名混乱、分发易篡改、版本难以重现 | **不可变 UUID + SHA256 校验和**，附带完整 Provenance 归档 |
 | **更新与安全** | 手动重新拉取仓库或依赖 pip，风险不可控 | **内置 Ed25519 密码学验签**、原子无缝更新与一键 Rollback |
 | **输出格式** | 文本混合日志，脚本解析容易报错 | **纯净 JSON-First 标准输出**，诊断归入 stderr，天生契合管道 |
+
+---
+
+## 📦 安装指南
+
+用户安装使用签名预编译包，不需要安装 Rust、Cargo、Python 或 C++ 运行库。当前 stable 通道支持 macOS Apple Silicon 和 Linux x86_64。
+
+```bash
+# macOS Apple Silicon 或 Linux x86_64
+curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
+
+# 将安装目录加入当前 shell 的 PATH
+export PATH="$HOME/.local/share/dyt-ashare/bin:$PATH"
+
+# 验证安装
+dytcn --version
+```
+
+安装脚本会下载目标平台的签名 manifest，校验 Ed25519 签名、字节数和 SHA256 后激活 CLI，并自动安装统一的 `dyt-ashare` Skill。首次安装会把源文件写入 `~/.agents/skills/dyt-ashare`；检测到 Claude Code、Codex、Cursor 等 Agent 目录时，会自动建立相对链接。
+
+安装完成后可检查版本、服务来源、更新状态和 Skill 状态：
+
+```bash
+dytcn doctor
+```
+
+Windows MSVC 资产尚未进入 stable 通道，PowerShell 安装入口将在对应预编译包发布后补充。
 
 ---
 
@@ -73,33 +100,6 @@ dytcn skills install
 # 8. 综合检查本地环境与更新状态
 dytcn doctor
 ```
-
----
-
-## 📦 安装指南
-
-用户安装使用签名预编译包，不需要安装 Rust、Cargo、Python 或 C++ 运行库。当前 stable 通道支持 macOS Apple Silicon 和 Linux x86_64。
-
-```bash
-# macOS Apple Silicon 或 Linux x86_64
-curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
-
-# 将安装目录加入当前 shell 的 PATH
-export PATH="$HOME/.local/share/dyt-ashare/bin:$PATH"
-
-# 验证安装
-dytcn --version
-```
-
-安装脚本会下载目标平台的签名 manifest，校验 Ed25519 签名、字节数和 SHA256 后激活 CLI，并自动安装统一的 `dyt-ashare` Skill。首次安装会把源文件写入 `~/.agents/skills/dyt-ashare`；检测到 Claude Code、Codex、Cursor 等 Agent 目录时，会自动建立相对链接。
-
-安装完成后可检查版本、服务来源、更新状态和 Skill 状态：
-
-```bash
-dytcn doctor
-```
-
-Windows MSVC 资产尚未进入 stable 通道，PowerShell 安装入口将在对应预编译包发布后补充。
 
 ---
 
