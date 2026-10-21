@@ -6,7 +6,7 @@
 
 通过配套命令行工具 `dytcn` 查询数据、下载研究数据集，也可以让 AI Agent 帮你完成查询与分析。
 
-[![Platform](https://img.shields.io/badge/platform-macOS%20ARM64%20%7C%20Linux%20x86_64-lightgrey.svg?style=flat-square)](#-安装与试用)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20ARM64%20%7C%20Linux%20x86_64-lightgrey.svg?style=flat-square)](#-安装与试用)
 [![Contact](https://img.shields.io/badge/咨询与购买-297910962%40qq.com-blue.svg?style=flat-square)](mailto:297910962@qq.com)
 
 <p align="center">
@@ -58,7 +58,7 @@
 
 ## 📦 安装与试用
 
-当前可安装的平台为 **macOS Apple Silicon** 和 **Linux x86_64**；**Windows x64 安装包待发布**。无需自行编译或配置 Python 环境。
+支持 **Windows x64**、**macOS Apple Silicon** 和 **Linux x86_64**。下载安装即可使用，无需自行编译或配置 Python 环境。
 
 ### macOS / Linux
 
@@ -70,9 +70,9 @@ exec $SHELL
 dytcn --version
 ```
 
-### Windows x64（安装包待发布）
+### Windows x64
 
-Windows 安装包目前尚未发布，暂时无法完成安装。发布后，在 **PowerShell** 中运行以下命令：
+打开 **PowerShell**，运行以下命令：
 
 ```powershell
 # 下载并运行安装程序
