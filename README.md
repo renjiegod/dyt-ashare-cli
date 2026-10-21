@@ -58,7 +58,9 @@
 
 ## 📦 安装与试用
 
-当前安装入口支持 **macOS Apple Silicon** 和 **Linux x86_64**。下载即可使用，无需自行编译或配置 Python 环境。
+当前可安装的平台为 **macOS Apple Silicon** 和 **Linux x86_64**；**Windows x64 安装包待发布**。无需自行编译或配置 Python 环境。
+
+### macOS / Linux
 
 ```bash
 curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
@@ -67,6 +69,28 @@ curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
 exec $SHELL
 dytcn --version
 ```
+
+### Windows x64（安装包待发布）
+
+Windows 安装包目前尚未发布，暂时无法完成安装。发布后，在 **PowerShell** 中运行以下命令：
+
+```powershell
+# 下载并运行安装程序
+$installer = Join-Path $env:TEMP "dyt-ashare-install.ps1"
+Invoke-WebRequest -UseBasicParsing -Uri "https://data.doyoutrade.cloud/releases/dyt-ashare/install.ps1" -OutFile $installer
+powershell -NoProfile -ExecutionPolicy Bypass -File $installer
+```
+
+安装完成后，关闭并重新打开终端，检查是否安装成功：
+
+```powershell
+dytcn --version
+dytcn doctor
+```
+
+如果提示找不到 `dytcn`，请确认已重新打开终端。Windows ARM64 暂未开放安装。
+
+### 开始试用
 
 安装后可以先用游客模式查询数据覆盖与分钟线。以下日期仅作示例，请替换为游客当前允许范围内的日期；游客历史窗口和额度由服务端控制。
 
