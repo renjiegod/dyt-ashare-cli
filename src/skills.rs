@@ -297,6 +297,11 @@ fn agent_destinations_for_home(home: &Path) -> Vec<(PathBuf, String)> {
         (home.join(".clawdbot"), "openclaw"),
         (home.join(".moltbot"), "openclaw"),
         (home.join(".roo"), "roo-code"),
+        (
+            configured_root(home, "WORKBUDDY_CONFIG_DIR", ".workbuddy-ai"),
+            "workbuddy",
+        ),
+        (home.join(".workbuddy"), "workbuddy"),
     ];
     for (root, label) in candidates {
         let dir = root.join("skills");
@@ -348,10 +353,9 @@ pub fn install(root: &Path, dir: &Path) -> Result<Value> {
     finish(root, &registry, installed, pending, migrated)
 }
 
-fn install_targets(root: &Path, include_registered: bool) -> Result<Value> {
+fn install_targets(root: &Path, home: &Path, include_registered: bool) -> Result<Value> {
     let _lock = lock(root)?;
-    let home = state::home()?;
-    let mut destinations = agent_destinations_for_home(&home);
+    let mut destinations = agent_destinations_for_home(home);
     if include_registered {
         for entry in read_registry(root)?.entries {
             if let Some(dir) = entry.path.parent().and_then(Path::parent)
@@ -385,11 +389,13 @@ fn install_targets(root: &Path, include_registered: bool) -> Result<Value> {
 }
 
 pub fn install_default(root: &Path) -> Result<Value> {
-    install_targets(root, false)
+    let home = state::home()?;
+    install_targets(root, &home, false)
 }
 
 pub fn refresh(root: &Path) -> Result<Value> {
-    let status = install_targets(root, true)?;
+    let home = state::home()?;
+    let status = install_targets(root, &home, true)?;
     Ok(json!({"destinations":[status]}))
 }
 
@@ -421,4 +427,9 @@ pub(crate) fn destinations_for_test(home: &Path) -> Vec<PathBuf> {
         .into_iter()
         .map(|(path, _)| path)
         .collect()
+}
+
+#[cfg(test)]
+pub(crate) fn install_for_test(root: &Path, home: &Path) -> Result<Value> {
+    install_targets(root, home, false)
 }

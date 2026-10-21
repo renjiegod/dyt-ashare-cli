@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
   assert (out/version/target/exe).stat().st_mode & 0o111 or os.name == 'nt'
   user_home=t/'user-home'; user_home.mkdir()
   # Existing agent roots exercise the canonical file plus adapter links.
-  for agent in ['.claude', '.codex', '.cursor']:
+  for agent in ['.claude', '.codex', '.cursor', '.workbuddy-ai', '.workbuddy']:
    (user_home/agent).mkdir()
   env=dict(os.environ,DYT_ASHARE_HOME=str(t/'installed'),DYT_ASHARE_NO_UPDATE='1',HOME=str(user_home),USERPROFILE=str(user_home),CODEX_HOME=str(user_home/'.codex'))
   launcher=t/'installed/bin'/exe
@@ -61,6 +61,8 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
   assert (user_home/'.claude/skills/dyt-ashare/SKILL.md').exists()
   assert (user_home/'.codex/skills/dyt-ashare/SKILL.md').exists()
   assert (user_home/'.cursor/skills/dyt-ashare/SKILL.md').exists()
+  assert (user_home/'.workbuddy-ai/skills/dyt-ashare/SKILL.md').exists()
+  assert (user_home/'.workbuddy/skills/dyt-ashare/SKILL.md').exists()
   edited=canonical;edited.write_text('user owned change')
   cli('update','--manifest',str(out/'0.2.0'/target/'release.json'))
   assert cli('--version').stdout.strip()=='dytcn 0.2.0'
