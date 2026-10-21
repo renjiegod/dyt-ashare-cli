@@ -4,7 +4,7 @@
 
 **面向 A 股高频分钟级历史数据研究与量化 AI Agent 的官方现代化 Rust 命令行工具**
 
-[![Release](https://img.shields.io/badge/release-v0.1.0-blue.svg?style=flat-square)](https://github.com/renjiegod/dyt-ashare-cli/releases)
+[![Status](https://img.shields.io/badge/status-development%20preview-orange.svg?style=flat-square)](https://github.com/renjiegod/dyt-ashare-cli)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B%20(2024)-orange.svg?style=flat-square)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 [![Security: Ed25519 Signed](https://img.shields.io/badge/security-Ed25519%20Signed-blueviolet.svg?style=flat-square)](#-安全机制与自愈更新体系)
@@ -24,7 +24,7 @@
 </div>
 
 > [!NOTE]
-> **开发预览说明**：本项目当前处于公开开发预览阶段。安装脚本、签名发布清单、版本包和 Skills 使用固定的 DYT 发布源 `https://data.doyoutrade.cloud`；GitHub Releases 用于源码和便携版下载。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
+> **开发预览说明**：本项目当前处于公开开发预览阶段。预编译版本、签名发布清单和一键安装源尚未公开发布；当前可用的安装方式是从源码编译。服务端地址在签发账户时由运营方提供或通过环境变量配置。客户端采用 MIT 开源协议，数据服务的账户、额度与套餐由服务端统筹管理；不同金融市场独立交付（加密资产能力归属于独立的 `dyt-crypto` 产品）。
 
 ---
 
@@ -78,47 +78,9 @@ dytcn doctor
 
 ## 📦 安装指南
 
-`dytcn` 提供适用于主流操作系统的主流安装方式。Windows 用户可直接使用预编译程序，无需安装任何开发环境。
+当前公开可用的安装方式是从源码编译安装。预编译版本和一键安装脚本将在正式发布后补充。
 
-### 方式一：Windows PowerShell 一键安装（推荐）
-
-在 PowerShell 终端中执行以下命令（自动检测 x64/ARM64 架构、配置用户 PATH、安装 Skills 并注册后台自动更新任务）：
-
-```powershell
-# 官方安装脚本使用 DYT 发布源；也可以直接在 Releases 下载预编译便携版
-powershell -ExecutionPolicy Bypass -c "irm https://data.doyoutrade.cloud/releases/dyt-ashare/install.ps1 | iex"
-```
-
-> [!TIP]
-> 安装程序默认安装至 `%LOCALAPPDATA%\DYT\AShare`，注册每 6 小时静默执行一次的自检更新计划任务，且不会影响当前正在运行的研究进程。
-
-### 方式二：macOS / Linux 自动化安装
-
-打开终端执行安装脚本：
-
-```bash
-curl -fsSL https://data.doyoutrade.cloud/releases/dyt-ashare/install.sh | sh
-```
-
-安装脚本只使用 `curl` 和系统自带的 SHA256 工具，不需要安装 Python、Rust 或其他运行时。
-
-安装完成后将 `$HOME/.local/share/dyt-ashare/bin` 加入系统 `PATH` 即可：
-
-```bash
-export PATH="$HOME/.local/share/dyt-ashare/bin:$PATH"
-```
-
-### 方式三：便携版直接运行 (Portable)
-
-从 [Releases 页面](https://github.com/renjiegod/dyt-ashare-cli/releases) 直接下载对应平台的独立二进制文件：
-- Windows: `dytcn.exe`
-- macOS (Apple Silicon): `dytcn-aarch64-apple-darwin`
-- macOS (Intel): `dytcn-x86_64-apple-darwin`
-- Linux (x86_64): `dytcn-x86_64-unknown-linux-gnu`
-
-下载后赋予可执行权限即可直接运行，便携模式不会触发后台自动安装。
-
-### 方式四：从源码编译安装
+### 从源码编译安装
 
 如果你拥有 Rust 开发环境（需要 **Rust 1.88+**，使用 2024 Edition）：
 
