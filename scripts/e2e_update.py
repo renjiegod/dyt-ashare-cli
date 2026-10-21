@@ -15,6 +15,10 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
   p=root/name
   if p.is_dir():shutil.copytree(p,source/name)
   else:shutil.copyfile(p,source/name)
+ (source/'scripts').mkdir()
+ shutil.copyfile(root/'scripts/package.py',source/'scripts/package.py')
+ shutil.copyfile(root/'scripts/install.sh',source/'scripts/install.sh')
+ shutil.copyfile(root/'scripts/install.ps1',source/'scripts/install.ps1')
  target=subprocess.check_output(['rustc','-vV'],text=True).split('host: ')[1].splitlines()[0]
  exe='dytcn.exe' if os.name=='nt' else 'dytcn'
  out=t/'web';out.mkdir()
@@ -24,12 +28,13 @@ with tempfile.TemporaryDirectory(prefix='dyt-e2e-') as temp:
  thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
  base=f'http://127.0.0.1:{server.server_port}'
  original=(source/'Cargo.toml').read_text()
+ original_version=next(line.split('=',1)[1].strip().strip('"') for line in original.splitlines() if line.startswith('version ='))
  try:
   for version in ['0.1.0','0.2.0']:
-   (source/'Cargo.toml').write_text(original.replace('version = "0.1.0"',f'version = "{version}"',1))
+   (source/'Cargo.toml').write_text(original.replace(f'version = "{original_version}"',f'version = "{version}"',1))
    # Version-only package changes update the lockfile in this disposable copy.
    call(['cargo','build','--quiet'],cwd=source,env=buildenv)
-   call(['python3' if os.name!='nt' else 'python',root/'scripts/package.py','--binary',t/'target/debug'/exe,'--target',target,'--version',version,'--base-url',base,'--key',key,'--out',out])
+   call(['python3' if os.name!='nt' else 'python',source/'scripts/package.py','--binary',t/'target/debug'/exe,'--target',target,'--version',version,'--base-url',base,'--key',key,'--out',out])
   assert (out/'install.sh').exists()
   assert (out/'install.ps1').exists()
   assert (out/version/target/exe).stat().st_mode & 0o111 or os.name == 'nt'

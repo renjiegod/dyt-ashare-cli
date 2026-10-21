@@ -1,6 +1,7 @@
 # Development and release
 
-Use an isolated worktree from fetched origin/main. `scripts/test.sh` runs format, Clippy and
+Use an isolated worktree from fetched origin/main. Read [`RELEASE_SOP.md`](RELEASE_SOP.md) for
+the complete version, packaging, publication and post-release acceptance flow. `scripts/test.sh` runs format, Clippy and
 behavior tests. `scripts/e2e_update.py` builds two real CLI versions using an isolated test key,
 serves signed releases on loopback, installs, updates, preserves edited Skills, rejects a tampered
 manifest, rolls back and performs an unattended update. On Windows it uses the actual PowerShell
@@ -22,10 +23,14 @@ uses the static CRT flags in `.cargo/config.toml`). Bundle the executable and th
 `dyt-ashare` Skill:
 
 ```sh
-python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
-  --version 0.1.0 --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
+DYT_OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl python3 scripts/package.py --binary target/<target>/release/dytcn --target <target> \
+  --base-url https://data.doyoutrade.cloud/releases/dyt-ashare \
   --key /secure/location/cn-ed25519.pem --out dist
 ```
+
+The package script reads the release version from `Cargo.toml`; an explicit `--version` is
+optional and must match it. `scripts/check_release.py` fails the local gate when release code
+changes reach a branch without a package version bump.
 
 Use the matching Ed25519 private key for `release-public-key.hex`; never commit the private key.
 The release custodian generated the current key locally. A trust-key override
