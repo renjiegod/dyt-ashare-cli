@@ -32,7 +32,7 @@ case "$(uname -s)/$(uname -m)" in
  *) echo 'Unsupported platform; download a compatible portable bundle.' >&2; exit 1;;
 esac
 command -v curl >/dev/null || { echo 'First installation needs curl or use the portable binary.' >&2; exit 1; }
-task_url="${DYT_ASHARE_RELEASE_URL:-https://data.doyoutrade.cloud/releases/dyt-ashare/stable-$target.json}"
+task_url="${DYT_ASHARE_RELEASE_URL:-https://data.doyoutrade.cloud/releases/dyt-ashare/channel-$target.json}"
 task_tmp=$(mktemp -d)
 trap 'rm -rf "$task_tmp"' EXIT HUP INT TERM
 curl --proto '=https' --tlsv1.2 -fL --max-redirs 0 "$task_url" -o "$task_tmp/release.json"
