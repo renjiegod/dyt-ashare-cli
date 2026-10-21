@@ -14,6 +14,12 @@ fn origin_credentials_paths_and_transport_are_restricted() {
     assert!(state::symbol("600000.SH").is_ok());
     assert!(state::symbol("../secret").is_err());
 }
+
+#[test]
+fn api_load_without_credentials_uses_guest_mode() {
+    let tmp = tempfile::tempdir().unwrap();
+    assert!(api::Api::load(tmp.path(), Some("http://127.0.0.1:8080")).is_ok());
+}
 fn release() -> update::Manifest {
     update::Manifest {
         version: "0.1.0".into(),
