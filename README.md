@@ -22,6 +22,8 @@
 
 > **想先体验？** 安装后无需 API Key 即可在游客额度内查询。需要更长历史范围、批量查询或数据集下载，请联系 [297910962@qq.com](mailto:297910962@qq.com) 咨询套餐与开通 API Key。
 
+> **发现更多命令行工具？** 欢迎访问 [SuperCLI](https://supercli.site/)，浏览开发者工具目录；也可以直接查看 [DYT AShare CLI 收录页](https://supercli.site/tools/dyt-ashare-cli/)。
+
 ---
 
 ## 📊 数据服务
