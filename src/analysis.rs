@@ -70,12 +70,14 @@ pub fn analyze(input: &[u8]) -> Result<Value> {
         volume += n[4];
         turnover += n[5];
     }
-    let expected = match value["query"]["frequency"].as_str().unwrap_or("1min") {
+    let frequency = value["query"]["frequency"].as_str().unwrap_or("1min");
+    let expected = match frequency {
         "1min" => 240,
         "5min" => 48,
         "15min" => 16,
         "30min" => 8,
         "60min" => 4,
+        "1d" | "daily" => 1,
         _ => 0,
     };
     let incomplete = days
@@ -84,6 +86,6 @@ pub fn analyze(input: &[u8]) -> Result<Value> {
         .map(|(day, n)| json!({"date":day,"observed_rows":n,"full_session_expected_rows":expected}))
         .collect::<Vec<_>>();
     Ok(
-        json!({"cli_version":env!("CARGO_PKG_VERSION"),"input_sha256":crate::state::hash(input),"symbol":rows[0]["ts_code"],"rows":rows.len(),"first_bar":rows[0]["bar_end_time"],"last_bar":rows[rows.len()-1]["bar_end_time"],"raw_close_change":last.zip(first).map(|(l,f)|l/f-1.0),"raw_close_max_drawdown":drawdown,"volume_shares":volume,"turnover_cny":turnover,"observed_day_rows":days,"observed_days_with_partial_or_invalid_counts":incomplete,"duplicate_timestamps":duplicates,"invalid_ohlcv":invalid,"off_session_timestamps":off_session,"datasets":value["datasets"],"contract":value["contract"],"interpretation":"unadjusted descriptive statistics; not strategy returns; no certified calendar or fee model"}),
+        json!({"cli_version":env!("CARGO_PKG_VERSION"),"input_sha256":crate::state::hash(input),"symbol":rows[0]["ts_code"],"frequency":frequency,"rows":rows.len(),"first_bar":rows[0]["bar_end_time"],"last_bar":rows[rows.len()-1]["bar_end_time"],"raw_close_change":last.zip(first).map(|(l,f)|l/f-1.0),"raw_close_max_drawdown":drawdown,"volume_shares":volume,"turnover_cny":turnover,"observed_day_rows":days,"observed_days_with_partial_or_invalid_counts":incomplete,"duplicate_timestamps":duplicates,"invalid_ohlcv":invalid,"off_session_timestamps":off_session,"datasets":value["datasets"],"contract":value["contract"],"interpretation":"unadjusted descriptive statistics; not strategy returns; no certified calendar or fee model"}),
     )
 }
