@@ -6,6 +6,7 @@
 
 通过配套命令行工具 `dytcn` 查询数据、下载研究数据集，也可以让 AI Agent 帮你完成查询与分析。
 
+[![GitHub Stars](https://img.shields.io/github/stars/renjiegod/dyt-ashare-cli?style=flat-square)](https://github.com/renjiegod/dyt-ashare-cli)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64%2FARM64%20%7C%20macOS%20ARM64%20%7C%20Linux%20x86_64-lightgrey.svg?style=flat-square)](#-安装与试用)
 [![Contact](https://img.shields.io/badge/咨询与购买-297910962%40qq.com-blue.svg?style=flat-square)](mailto:297910962@qq.com)
 
