@@ -17,7 +17,7 @@ pub const LIMIT: u64 = 8 * 1024 * 1024;
 /// Guest sessions are server-limited, not client-limited. Every guest answer
 /// carries this notice so the caller can offer an API key without blocking the
 /// request that already succeeded.
-pub const GUEST_NOTICE: &str = "Guest session: the server enforces a request rate limit, a daily request and row quota, and a limited history window. Run `dytcn auth login` for account quota and full history.";
+pub const GUEST_NOTICE: &str = "Guest session: the server enforces request rate limits and daily request/row quotas; the service may also apply a history or account policy. Run `dytcn auth login` for account quota and broader history.";
 #[derive(Serialize, Deserialize)]
 pub struct Credentials {
     pub origin: String,

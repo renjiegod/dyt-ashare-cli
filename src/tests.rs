@@ -134,6 +134,11 @@ fn bundled_skill_is_one_broad_ashare_router() {
         "analysis",
         "coverage",
         "minutes",
+        "daily",
+        "backtest run",
+        "self-contained HTML",
+        "Polars",
+        "Rayon",
         "analyze",
     ] {
         assert!(
@@ -379,6 +384,25 @@ fn local_analysis_is_chronological_and_exposes_quality_problems() {
     let r = analysis::analyze(&serde_json::to_vec(&data).unwrap()).unwrap();
     assert!((r["raw_close_max_drawdown"].as_f64().unwrap() - 0.2).abs() < 1e-10);
     assert_eq!(r["first_bar"], "2026-06-01 09:31:00");
+}
+
+#[test]
+fn local_analysis_accepts_daily_quality_contract() {
+    let bar = |date: &str, close: f64| json!({"ts_code":"600000.SH","bar_end_time":format!("{date} 15:00:00"),"px_open":close,"px_high":close,"px_low":close,"px_close":close,"volume_shares":1000.0,"turnover_cny":close*1000.0});
+    let data = json!({
+        "items":[bar("2026-06-02", 11.0),bar("2026-06-01", 10.0)],
+        "query":{"frequency":"1d"},
+        "datasets":[{"id":"dataset-1","sha256":"sha-1"}],
+        "contract":{"version":"daily-from-minute-v1"}
+    });
+    let result = analysis::analyze(&serde_json::to_vec(&data).unwrap()).unwrap();
+    assert_eq!(result["frequency"], "1d");
+    assert!(
+        result["observed_days_with_partial_or_invalid_counts"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 #[test]
 fn updating_while_another_update_holds_lock_cannot_mutate_installation() {

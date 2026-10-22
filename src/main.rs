@@ -344,7 +344,7 @@ fn auth_status(root: &std::path::Path) -> Value {
         "environment_key_set": environment,
         "guest_limits_apply": mode == "guest",
         "next_step": if mode == "guest" {
-            "Guest access works without a key. The server limits guest request rate, daily requests and rows, and the history window. Run `dytcn auth login` for account quota and full history."
+            "Guest access works without a key when the server policy allows it. The server limits request rate and daily requests/rows, and may apply a history or account policy. Run `dytcn auth login` for account quota and broader history."
         } else {
             "Authenticated session. `dytcn usage` reports the account quota and `dytcn sync` is available."
         },

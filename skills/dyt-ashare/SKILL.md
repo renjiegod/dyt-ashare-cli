@@ -6,19 +6,20 @@ description: Use DYT AShare whenever a request concerns China A-shares (Aè‚¡), è
 # DYT AShare routing skill
 
 This is the single entry point for A-share information lookup and analysis. Use the
-installed `dytcn` CLI and keep the command output as JSON. `coverage` and `minutes`
-work without login under the server's guest policy. Run `dytcn usage` when account
-quota is relevant; run `dytcn auth login` before `sync` or account-only usage.
+installed `dytcn` CLI and keep the command output as JSON. `coverage`, `minutes` and
+`daily` can work without login when the server's guest policy allows them. Run
+`dytcn usage` when account quota is relevant; run `dytcn auth login` before `sync`
+or account-only usage.
 Never ask the user to send an API key in chat.
 
 ## Route by intent
 
 | User intent | Route | Required steps |
 | --- | --- | --- |
-| A-share stock or index information, available history, or a requested date window | Coverage and data lookup | Normalize a six-digit symbol with `.SH`, `.SZ`, or `.BJ`; run `dytcn coverage` before `dytcn minutes` or `dytcn sync`. |
+| A-share stock or index information, available history, or a requested date window | Coverage and data lookup | Normalize a six-digit symbol with `.SH`, `.SZ`, or `.BJ`; run `dytcn coverage` before `dytcn minutes`, `dytcn daily`, or `dytcn sync`. |
 | Historical minute/daily bars or a reproducible local dataset | Data retrieval | Use `dytcn minutes` for a window of at most 31 calendar days, or `dytcn daily` for a daily window. Each remote daily request is at most 366 calendar days; the CLI splits longer ranges sequentially and consumes the matching quota. Prefer `--out` or `--dir` so the result can be inspected again. |
 | Missing bars, duplicates, invalid OHLCV, session completeness, or dataset provenance | Quality analysis | Run `dytcn analyze --input <minutes.json>` and report its quality fields, observed interval, row count, dataset IDs, and SHA256 values. |
-| Technical analysis, strategy research, or a backtest input | Research workflow | Retrieve and validate the exact immutable data first, then analyze it locally. Run `dytcn backtest run` for the built-in daily replay and keep its JSON plus self-contained HTML report. Treat descriptive statistics and backtest results as research evidence, not as a profitable strategy or a live trading signal. |
+| Technical analysis, strategy research, or a backtest input | Research workflow | Retrieve and validate the exact immutable data first, then analyze it locally. Use `dytcn analyze` for minute or daily JSON quality checks, or run `dytcn backtest run` for the built-in daily replay and keep its JSON plus self-contained HTML report. Treat descriptive statistics and backtest results as research evidence, not as a profitable strategy or a live trading signal. |
 | Quota, rate limit, local installation, or version/update status | Account and environment | Use `dytcn usage`, `dytcn doctor`, or `dytcn auth status`; guest limits are server-enforced and keys must not be rotated to bypass them. |
 
 ## Authentication and quota
@@ -27,13 +28,13 @@ Guest access is a supported mode, not a broken one. The server enforces the gues
 policy; the client never blocks a request that the server allows.
 
 - Check the session mode before a multi-step workflow: `dytcn auth status` reports
-  `mode` (`guest` or `account`), and every `coverage`/`minutes` answer carries an
+  `mode` (`guest` or `account`), and every `coverage`/`minutes`/`daily` answer carries an
   `auth` block with the same mode plus `earliest_allowed_date` when the server
   reports it.
-- Guest mode is limited by the server: a request rate limit, a daily request and row
-  quota, and a history window that starts at `earliest_allowed_date`. A single
-  recent query is usually fine; a long history window, a batch of symbols, or a
-  backtest dataset is not.
+- Guest mode is limited by the server: request rate limits and daily request/row
+  quotas, with any history boundary reported by the service. A single recent query
+  is usually fine; a long history window, a batch of symbols, or a backtest dataset
+  may require an account.
 - Recommend `dytcn auth login` when the task needs full history, repeated or bulk
   requests, `sync`, or `usage`. Keep working in guest mode meanwhile; never make
   login a precondition for answering, and never block a deliverable on it.
@@ -93,6 +94,8 @@ appropriate later as an optional feature for large columnar indicator pipelines,
 for independent symbol or parameter sweeps. Do not parallelize one symbol's cash and position ledger,
 and do not nest an outer Rayon pool around Polars' own pool without an explicit thread budget.
 
-For a larger reproducible window, use `dytcn sync --symbol ... --from ... --to ... --dir ...` and
+For a larger reproducible JSON window, use `dytcn daily` or `dytcn backtest run`; the CLI splits
+daily requests into bounded sequential windows. Use `dytcn sync --symbol ... --from ... --to ...
+--dir ...` only when the selected service advertises dataset manifest and download endpoints, and
 consume only paths listed in its returned catalog. A failed or quota-limited request should be
 reported with its server response; do not silently substitute another source.
