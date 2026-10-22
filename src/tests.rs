@@ -1,4 +1,7 @@
 use super::*;
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::thread;
 #[test]
 fn origin_credentials_paths_and_transport_are_restricted() {
     for s in [
@@ -18,6 +21,44 @@ fn origin_credentials_paths_and_transport_are_restricted() {
 fn api_load_without_credentials_uses_guest_mode() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(api::Api::load(tmp.path(), Some("http://127.0.0.1:8080")).is_ok());
+}
+
+#[test]
+fn daily_range_splits_windows_and_merges_provenance_deterministically() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        for (date, request_index) in [("2024-01-02", 0), ("2025-01-02", 1)] {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            let body = json!({
+                "items":[{"ts_code":"600000.SH","bar_end_time":format!("{date} 15:00:00"),"px_open":10.0,"px_high":10.0,"px_low":10.0,"px_close":10.0,"volume_shares":1000,"turnover_cny":10000}],
+                "datasets":[{"id":"dataset-1","sha256":"sha-1","processor_version":"p1"}],
+                "contract":{"version":"daily-from-minute-v1"},
+                "coverage":"available_files_only",
+                "order":"bar_end_time_desc",
+                "request_index":request_index
+            })
+            .to_string();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+        }
+    });
+    let api = api::Api::new(&format!("http://{}", address), None).unwrap();
+    let value = api
+        .daily_range("600000.SH", "2024-01-01", "2026-01-01")
+        .unwrap();
+    server.join().unwrap();
+    assert_eq!(value["query"]["windows"].as_array().unwrap().len(), 2);
+    assert_eq!(value["items"].as_array().unwrap().len(), 2);
+    assert_eq!(value["items"][0]["bar_end_time"], "2025-01-02 15:00:00");
+    assert_eq!(value["datasets"].as_array().unwrap().len(), 1);
 }
 #[test]
 fn release_channel_rejects_tampering_wrong_target_bad_assets_and_path_escape() {
@@ -361,4 +402,74 @@ fn date_only_end_includes_the_whole_requested_day() {
         "2026-06-01 23:59:59"
     );
     assert!(minute_time("2026-02-30", false).is_err());
+}
+
+#[test]
+fn local_backtest_sorts_remote_daily_rows_and_writes_an_offline_report() {
+    let bar = |date: &str, open: f64, close: f64| {
+        json!({
+            "ts_code":"600000.SH",
+            "bar_end_time":format!("{date} 15:00:00"),
+            "px_open":open,
+            "px_high":open.max(close),
+            "px_low":open.min(close),
+            "px_close":close,
+            "volume_shares":1000.0,
+            "turnover_cny":open * 1000.0,
+        })
+    };
+    let data = json!({
+        "items":[
+            bar("2026-01-03", 12.0, 13.0),
+            bar("2026-01-02", 11.0, 12.0),
+            bar("2026-01-01", 10.0, 11.0)
+        ],
+        "datasets":[{"id":"dataset-1","sha256":"abc","processor_version":"v1"}],
+        "contract":{"version":"daily-from-minute-v1"},
+        "query":{"symbol":"600000.SH","from":"2026-01-01","to":"2026-01-03","frequency":"1d"},
+        "auth":{"mode":"guest"},
+        "coverage":"available_files_only"
+    });
+    let config = backtest::Config {
+        symbol: "600000.SH".into(),
+        strategy: backtest::Strategy::parse("buy-and-hold", 10, 30).unwrap(),
+        initial_cash: 100_000.0,
+        fee_bps: 0.0,
+        slippage_bps: 0.0,
+        lot_size: 100,
+        report_path: None,
+    };
+    let output = backtest::run(&data, &config).unwrap();
+    assert_eq!(output.value["data"]["first_bar"], "2026-01-01 15:00:00");
+    assert_eq!(output.value["data"]["last_bar"], "2026-01-03 15:00:00");
+    assert_eq!(output.value["data"]["auth"]["mode"], "guest");
+    assert_eq!(output.value["metrics"]["ending_equity"], 130_000.0);
+    assert_eq!(output.value["metrics"]["terminal_state"]["flat"], true);
+    assert!(output.html.contains("<svg"));
+    assert!(!output.html.contains("https://"));
+}
+
+#[test]
+fn local_backtest_rejects_duplicate_or_invalid_daily_rows() {
+    let row = json!({
+        "ts_code":"600000.SH",
+        "bar_end_time":"2026-01-01 15:00:00",
+        "px_open":10.0,
+        "px_high":10.0,
+        "px_low":10.0,
+        "px_close":10.0,
+        "volume_shares":1000.0,
+        "turnover_cny":10000.0
+    });
+    let data = json!({"items":[row.clone(),row]});
+    let config = backtest::Config {
+        symbol: "600000.SH".into(),
+        strategy: backtest::Strategy::BuyAndHold,
+        initial_cash: 100_000.0,
+        fee_bps: 0.0,
+        slippage_bps: 0.0,
+        lot_size: 100,
+        report_path: None,
+    };
+    assert!(backtest::run(&data, &config).is_err());
 }

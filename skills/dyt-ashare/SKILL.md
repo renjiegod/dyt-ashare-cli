@@ -16,9 +16,9 @@ Never ask the user to send an API key in chat.
 | User intent | Route | Required steps |
 | --- | --- | --- |
 | A-share stock or index information, available history, or a requested date window | Coverage and data lookup | Normalize a six-digit symbol with `.SH`, `.SZ`, or `.BJ`; run `dytcn coverage` before `dytcn minutes` or `dytcn sync`. |
-| Historical minute bars or a reproducible local dataset | Data retrieval | Use `dytcn minutes` for a window of at most 31 calendar days, or `dytcn sync` for immutable Parquet revisions. Prefer `--out` or `--dir` so the result can be inspected again. |
+| Historical minute/daily bars or a reproducible local dataset | Data retrieval | Use `dytcn minutes` for a window of at most 31 calendar days, or `dytcn daily` for a daily window. Each remote daily request is at most 366 calendar days; the CLI splits longer ranges sequentially and consumes the matching quota. Prefer `--out` or `--dir` so the result can be inspected again. |
 | Missing bars, duplicates, invalid OHLCV, session completeness, or dataset provenance | Quality analysis | Run `dytcn analyze --input <minutes.json>` and report its quality fields, observed interval, row count, dataset IDs, and SHA256 values. |
-| Technical analysis, strategy research, or a backtest input | Research workflow | Retrieve and validate the exact immutable data first, then analyze it locally. Treat descriptive statistics as research evidence, not as a profitable strategy or a live trading signal. |
+| Technical analysis, strategy research, or a backtest input | Research workflow | Retrieve and validate the exact immutable data first, then analyze it locally. Run `dytcn backtest run` for the built-in daily replay and keep its JSON plus self-contained HTML report. Treat descriptive statistics and backtest results as research evidence, not as a profitable strategy or a live trading signal. |
 | Quota, rate limit, local installation, or version/update status | Account and environment | Use `dytcn usage`, `dytcn doctor`, or `dytcn auth status`; guest limits are server-enforced and keys must not be rotated to bypass them. |
 
 ## Authentication and quota
@@ -68,9 +68,30 @@ policy; the client never blocks a request that the server allows.
 dytcn auth status              # optional; reports guest or account mode
 dytcn coverage --symbol 600000.SH --from YYYY-MM-DD --to YYYY-MM-DD
 dytcn minutes --symbol 600000.SH --from YYYY-MM-DD --to YYYY-MM-DD --out minutes.json
+dytcn daily --symbol 600000.SH --from YYYY-MM-DD --to YYYY-MM-DD --out daily.json
 dytcn usage                    # optional; requires login for account quota
 dytcn analyze --input minutes.json
 ```
+
+For a local daily replay, run coverage first, then fetch the exact window through the same remote API:
+
+```text
+dytcn coverage --symbol 600000.SH --from YYYY-MM-DD --to YYYY-MM-DD
+dytcn backtest run --symbol 600000.SH --from YYYY-MM-DD --to YYYY-MM-DD \
+  --strategy sma-cross --fast 10 --slow 30 --initial-cash 100000 \
+  --fee-bps 3 --slippage-bps 2 --html ./backtest.html
+```
+
+The replay is long-only, uses unadjusted daily prices, sends a signal observed at the close to the
+next bar's open, rounds buys down to the lot size, and liquidates at the final close. The report
+contains return, drawdown, fees, turnover, terminal state, trades, dataset IDs and SHA256 provenance.
+Missing dates remain unknown; the replay does not infer holidays or model queue priority, partial fills,
+涨跌停, suspension, dividends, or splits. Keep the returned JSON and HTML together when sharing results.
+
+For the first implementation, the execution ledger is a typed Rust sequential state machine. Polars is
+appropriate later as an optional feature for large columnar indicator pipelines, and Rayon is appropriate
+for independent symbol or parameter sweeps. Do not parallelize one symbol's cash and position ledger,
+and do not nest an outer Rayon pool around Polars' own pool without an explicit thread budget.
 
 For a larger reproducible window, use `dytcn sync --symbol ... --from ... --to ... --dir ...` and
 consume only paths listed in its returned catalog. A failed or quota-limited request should be

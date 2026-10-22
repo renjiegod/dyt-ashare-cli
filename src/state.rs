@@ -48,7 +48,10 @@ pub fn read<T: DeserializeOwned>(path: &Path) -> Result<T> {
     .context("Invalid local JSON")
 }
 pub fn atomic(path: &Path, bytes: &[u8]) -> Result<()> {
-    let parent = path.parent().context("Path has no parent")?;
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(parent)?;
     let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
     tmp.write_all(bytes)?;

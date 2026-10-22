@@ -1,5 +1,6 @@
 mod analysis;
 mod api;
+mod backtest;
 mod skills;
 mod state;
 mod update;
@@ -74,6 +75,20 @@ enum Commands {
         #[arg(long)]
         input: PathBuf,
     },
+    /// Query daily bars from the remote AShare data API.
+    Daily {
+        #[arg(long)]
+        symbol: String,
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+    },
+    /// Fetch daily bars and run a reproducible local strategy replay.
+    Backtest {
+        #[command(subcommand)]
+        command: BacktestCommand,
+    },
     Skills {
         #[command(subcommand)]
         command: Skills,
@@ -108,6 +123,37 @@ enum Skills {
     },
     Refresh,
     List,
+}
+#[derive(Subcommand)]
+enum BacktestCommand {
+    /// Run a long-only daily-bar backtest and write a self-contained HTML report.
+    Run {
+        #[arg(long)]
+        symbol: String,
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+        #[arg(long, default_value = "sma-cross")]
+        strategy: String,
+        #[arg(long, default_value_t = 10)]
+        fast: usize,
+        #[arg(long, default_value_t = 30)]
+        slow: usize,
+        #[arg(long = "initial-cash", default_value_t = 100_000.0)]
+        initial_cash: f64,
+        #[arg(long, default_value_t = 3.0)]
+        fee_bps: f64,
+        #[arg(long, default_value_t = 2.0)]
+        slippage_bps: f64,
+        #[arg(long, default_value_t = 100)]
+        lot_size: u64,
+        #[arg(
+            long,
+            help = "HTML report path; defaults to dytcn-backtest-<symbol>-<strategy>.html"
+        )]
+        html: Option<PathBuf>,
+    },
 }
 #[derive(Subcommand)]
 enum UpdateAction {
@@ -196,6 +242,54 @@ fn run(cli: Cli, root: &std::path::Path) -> Result<Value> {
         Commands::Analyze { input } => {
             analysis::analyze(&fs::read(input).context("Cannot read analysis input")?)
         }
+        Commands::Daily { symbol, from, to } => {
+            let api = api()?;
+            let mut value = api.daily_range(&symbol, &from, &to)?;
+            annotate_auth(&mut value, api.authenticated());
+            Ok(value)
+        }
+        Commands::Backtest { command } => match command {
+            BacktestCommand::Run {
+                symbol,
+                from,
+                to,
+                strategy,
+                fast,
+                slow,
+                initial_cash,
+                fee_bps,
+                slippage_bps,
+                lot_size,
+                html,
+            } => {
+                state::symbol(&symbol)?;
+                let api = api()?;
+                let mut data = api.daily_range(&symbol, &from, &to)?;
+                annotate_auth(&mut data, api.authenticated());
+                let config = backtest::Config {
+                    symbol,
+                    strategy: backtest::Strategy::parse(&strategy, fast, slow)?,
+                    initial_cash,
+                    fee_bps,
+                    slippage_bps,
+                    lot_size,
+                    report_path: html,
+                };
+                let output = backtest::run(&data, &config)?;
+                let report_path = backtest::default_report_path(&config);
+                state::atomic(&report_path, output.html.as_bytes())?;
+                let report_path = fs::canonicalize(&report_path)?;
+                let report_bytes = fs::read(&report_path)?;
+                let mut value = output.value;
+                value["report"] = json!({
+                    "html_path": report_path,
+                    "bytes": report_bytes.len(),
+                    "sha256": state::hash(&report_bytes),
+                    "self_contained": true,
+                });
+                Ok(value)
+            }
+        },
         Commands::Skills { command } => match command {
             Skills::Bundled => Ok(
                 json!({"version":env!("CARGO_PKG_VERSION"),"skills":skills::BUNDLED.iter().map(|(name,text)|json!({"path":format!("skills/{name}/SKILL.md"),"sha256":state::hash(text.as_bytes())})).collect::<Vec<_>>()}),
