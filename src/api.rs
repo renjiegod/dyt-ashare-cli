@@ -1,5 +1,6 @@
 use crate::state;
 use anyhow::{Context, Result, bail};
+use chrono::{Duration as CalendarDuration, NaiveDate};
 use reqwest::{
     blocking::{Client, Response},
     redirect::Policy,
@@ -183,6 +184,103 @@ impl Api {
     }
     pub fn get(&self, path: &str, query: &[(&str, &str)]) -> Result<Value> {
         Ok(serde_json::from_slice(&self.raw(path, query)?)?)
+    }
+
+    pub fn daily(&self, symbol: &str, from: &str, to: &str) -> Result<Value> {
+        state::symbol(symbol)?;
+        let from_date = chrono::NaiveDate::parse_from_str(from, "%Y-%m-%d")
+            .context("Expected --from as YYYY-MM-DD")?;
+        let to_date = chrono::NaiveDate::parse_from_str(to, "%Y-%m-%d")
+            .context("Expected --to as YYYY-MM-DD")?;
+        if to_date < from_date {
+            bail!("--to must be on or after --from");
+        }
+        if (to_date - from_date).num_days() >= 366 {
+            bail!("Daily API requests are limited to 366 calendar days");
+        }
+        let from_text = from_date.format("%Y-%m-%d").to_string();
+        let to_text = to_date.format("%Y-%m-%d").to_string();
+        let mut value = self.get(
+            "/v1/daily",
+            &[
+                ("ts_code", symbol),
+                ("start_date", from_text.as_str()),
+                ("end_date", to_text.as_str()),
+            ],
+        )?;
+        value["cli_version"] = json!(env!("CARGO_PKG_VERSION"));
+        value["query"] = json!({"symbol":symbol,"from":from_text,"to":to_text,"frequency":"1d"});
+        Ok(value)
+    }
+
+    /// Fetch a long daily window as bounded sequential API requests. Each
+    /// request remains within the service's 366-calendar-day contract and the
+    /// merged response keeps every query window and dataset identity.
+    pub fn daily_range(&self, symbol: &str, from: &str, to: &str) -> Result<Value> {
+        state::symbol(symbol)?;
+        let from_date =
+            NaiveDate::parse_from_str(from, "%Y-%m-%d").context("Expected --from as YYYY-MM-DD")?;
+        let to_date =
+            NaiveDate::parse_from_str(to, "%Y-%m-%d").context("Expected --to as YYYY-MM-DD")?;
+        if to_date < from_date {
+            bail!("--to must be on or after --from");
+        }
+        let mut cursor = from_date;
+        let mut items = Vec::new();
+        let mut datasets = Vec::new();
+        let mut windows = Vec::new();
+        let mut contract = Value::Null;
+        let mut coverage = Value::Null;
+        while cursor <= to_date {
+            let chunk_end = (cursor + CalendarDuration::days(365)).min(to_date);
+            let chunk_from = cursor.format("%Y-%m-%d").to_string();
+            let chunk_to = chunk_end.format("%Y-%m-%d").to_string();
+            let response = self.daily(symbol, &chunk_from, &chunk_to)?;
+            if contract.is_null() {
+                contract = response["contract"].clone();
+            } else if response["contract"] != contract {
+                bail!("Daily API contract changed between query windows");
+            }
+            if coverage.is_null() {
+                coverage = response["coverage"].clone();
+            }
+            if let Some(rows) = response["items"].as_array() {
+                items.extend(rows.iter().cloned());
+            }
+            if let Some(objects) = response["datasets"].as_array() {
+                for object in objects {
+                    if let Some(existing) = datasets
+                        .iter()
+                        .find(|existing: &&Value| existing["id"] == object["id"])
+                        && existing["sha256"] != object["sha256"]
+                    {
+                        bail!("Dataset revision changed between query windows");
+                    }
+                    let duplicate = datasets.iter().any(|existing: &Value| {
+                        existing["id"] == object["id"] && existing["sha256"] == object["sha256"]
+                    });
+                    if !duplicate {
+                        datasets.push(object.clone());
+                    }
+                }
+            }
+            windows.push(response["query"].clone());
+            cursor = chunk_end + CalendarDuration::days(1);
+        }
+        items.sort_by(|left, right| {
+            right["bar_end_time"]
+                .as_str()
+                .cmp(&left["bar_end_time"].as_str())
+        });
+        Ok(json!({
+            "items": items,
+            "datasets": datasets,
+            "contract": contract,
+            "coverage": coverage,
+            "order": "bar_end_time_desc",
+            "cli_version": env!("CARGO_PKG_VERSION"),
+            "query": {"symbol":symbol,"from":from_date.to_string(),"to":to_date.to_string(),"frequency":"1d","windows":windows},
+        }))
     }
     pub fn raw(&self, path: &str, query: &[(&str, &str)]) -> Result<Vec<u8>> {
         let mut request = self.client.get(self.origin.join(path)?).query(query);
